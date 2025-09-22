@@ -1,0 +1,93 @@
+"""
+Classe base para todas as telas da aplicação
+"""
+
+import customtkinter as ctk
+
+class BaseScreen:
+    """Classe base para telas da aplicação"""
+    
+    def __init__(self, parent, title="Tela"):
+        """Inicializa a tela base"""
+        self.parent = parent
+        self.title = title
+        self.is_visible = False
+        
+        # Criar frame principal da tela
+        self.frame = ctk.CTkScrollableFrame(parent)
+        self.frame.grid_columnconfigure(0, weight=1)
+        
+        # Inicialmente oculta
+        self.hide()
+    
+    def show(self):
+        """Mostra a tela"""
+        if not self.is_visible:
+            self.frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+            self.is_visible = True
+            self.on_show()
+    
+    def hide(self):
+        """Oculta a tela"""
+        if self.is_visible:
+            self.frame.grid_remove()
+            self.is_visible = False
+            self.on_hide()
+    
+    def on_show(self):
+        """Callback chamado quando a tela é mostrada"""
+        pass
+    
+    def on_hide(self):
+        """Callback chamado quando a tela é ocultada"""
+        pass
+    
+    def create_title(self, title_text, subtitle_text=None):
+        """Cria um título para a tela"""
+        title_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
+        title_frame.pack(fill="x", pady=(0, 20))
+        
+        # Título principal
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text=title_text,
+            font=ctk.CTkFont(size=24, weight="bold")
+        )
+        title_label.pack(anchor="w")
+        
+        # Subtítulo (opcional)
+        if subtitle_text:
+            subtitle_label = ctk.CTkLabel(
+                title_frame,
+                text=subtitle_text,
+                font=ctk.CTkFont(size=14),
+                text_color=("gray50", "gray50")
+            )
+            subtitle_label.pack(anchor="w", pady=(5, 0))
+        
+        return title_frame
+    
+    def create_section(self, title, content_frame_class=None):
+        """Cria uma seção com título"""
+        section_frame = ctk.CTkFrame(self.frame)
+        section_frame.pack(fill="x", pady=(0, 15))
+        section_frame.grid_columnconfigure(0, weight=1)
+        
+        # Título da seção
+        section_title = ctk.CTkLabel(
+            section_frame,
+            text=title,
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        section_title.grid(row=0, column=0, sticky="w", padx=15, pady=(15, 10))
+        
+        # Frame de conteúdo
+        if content_frame_class:
+            content_frame = content_frame_class(section_frame)
+        else:
+            content_frame = ctk.CTkFrame(section_frame, fg_color="transparent")
+        
+        content_frame.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 15))
+        content_frame.grid_columnconfigure(0, weight=1)
+        
+        return section_frame, content_frame

@@ -1,0 +1,238 @@
+{
+  "brindes": [
+    {
+      "id": 1,
+      "codigo": "001",
+      "descricao": "Caneta Azul BIC",
+      "categoria": "Canetas",
+      "quantidade": 150,
+      "valor_unitario": 2.5,
+      "unidade_medida": "UN",
+      "filial": "Matriz",
+      "data_cadastro": "2025-09-20T10:00:00",
+      "usuario_cadastro": "admin"
+    },
+    {
+      "id": 2,
+      "codigo": "002",
+      "descricao": "Chaveiro Metálico",
+      "categoria": "Chaveiros",
+      "quantidade": 75,
+      "valor_unitario": 8.0,
+      "unidade_medida": "UN",
+      "filial": "Matriz",
+      "data_cadastro": "2025-09-20T11:00:00",
+      "usuario_cadastro": "admin"
+    },
+    {
+      "id": 3,
+      "codigo": "003",
+      "descricao": "Camiseta Polo P",
+      "categoria": "Camisetas",
+      "quantidade": 25,
+      "valor_unitario": 35.0,
+      "unidade_medida": "UN",
+      "filial": "Filial SP",
+      "data_cadastro": "2025-09-21T09:00:00",
+      "usuario_cadastro": "joao.silva"
+    },
+    {
+      "id": 4,
+      "codigo": "004",
+      "descricao": "Bloco A4 50 folhas",
+      "categoria": "Blocos",
+      "quantidade": 200,
+      "valor_unitario": 12.0,
+      "unidade_medida": "UN",
+      "filial": "Matriz",
+      "data_cadastro": "2025-09-21T14:00:00",
+      "usuario_cadastro": "admin"
+    },
+    {
+      "id": 5,
+      "codigo": "005",
+      "descricao": "Caneta Gel Preta",
+      "categoria": "Canetas",
+      "quantidade": 5,
+      "valor_unitario": 4.5,
+      "unidade_medida": "UN",
+      "filial": "Filial RJ",
+      "data_cadastro": "2025-09-22T08:00:00",
+      "usuario_cadastro": "maria.santos"
+    },
+    {
+      "descricao": "caneta vermelha",
+      "categoria": "Canetas",
+      "quantidade": 200,
+      "valor_unitario": 1.5,
+      "unidade_medida": "PC",
+      "filial": "Filial Belo Horizonte",
+      "id": 6,
+      "codigo": "006",
+      "data_cadastro": "2025-09-22T11:06:46.988347"
+    },
+    {
+      "descricao": "Teste Caneta",
+      "categoria": "Canetas",
+      "quantidade": 5,
+      "valor_unitario": 1.5,
+      "unidade_medida": "UN",
+      "filial": "Matriz",
+      "usuario_cadastro": "admin",
+      "id": 7,
+      "codigo": "007",
+      "data_cadastro": "2025-09-22T13:07:41.444551"
+    },
+    {
+      "descricao": "Teste Workflow Atualizado",
+      "categoria": "Canetas",
+      "quantidade": 20,
+      "valor_unitario": 2.0,
+      "unidade_medida": "UN",
+      "filial": "Matriz",
+      "usuario_cadastro": "admin",
+      "id": 8,
+      "codigo": "008",
+      "data_cadastro": "2025-09-22T13:07:41.471597",
+      "data_atualizacao": "2025-09-22T13:07:41.473369"
+    }
+  ],
+  "categorias": [
+    {
+      "id": 1,
+      "nome": "Canetas",
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "nome": "Chaveiros",
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "nome": "Camisetas",
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "nome": "Blocos",
+      "ativo": true
+    },
+    {
+      "id": 5,
+      "nome": "Eletrônicos",
+      "ativo": true
+    },
+    {
+      "id": 6,
+      "nome": "Outros",
+      "ativo": true
+    }
+  ],
+  "unidades_medida": [
+    {
+      "id": 1,
+      "codigo": "UN",
+      "descricao": "Unidade",
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "codigo": "KG",
+      "descricao": "Quilograma",
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "codigo": "LT",
+      "descricao": "Litro",
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "codigo": "CX",
+      "descricao": "Caixa",
+      "ativo": true
+    },
+    {
+      "id": 5,
+      "codigo": "PC",
+      "descricao": "Peça",
+      "ativo": true
+    }
+  ],
+  "filiais": [
+    {
+      "id": 1,
+      "numero": "001",
+      "nome": "Matriz",
+      "cidade": "São Paulo",
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "numero": "002",
+      "nome": "Filial São Paulo",
+      "cidade": "São Paulo",
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "numero": "003",
+      "nome": "Filial Rio de Janeiro",
+      "cidade": "Rio de Janeiro",
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "numero": "004",
+      "nome": "Filial Belo Horizonte",
+      "cidade": "Belo Horizonte",
+      "ativo": true
+    }
+  ],
+  "movimentacoes": [
+    {
+      "brinde_id": 8,
+      "brinde_codigo": "008",
+      "brinde_descricao": "Teste Workflow Atualizado",
+      "tipo": "entrada",
+      "quantidade": 5,
+      "usuario": "admin",
+      "observacoes": "Teste de entrada",
+      "filial": "Matriz",
+      "id": 1,
+      "data_hora": "2025-09-22T13:07:41.475068"
+    }
+  ],
+  "usuarios": [
+    {
+      "id": 1,
+      "username": "admin",
+      "nome": "Administrador",
+      "filial": "Matriz",
+      "perfil": "Admin",
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "username": "joao.silva",
+      "nome": "João Silva",
+      "filial": "Filial SP",
+      "perfil": "Gestor",
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "username": "maria.santos",
+      "nome": "Maria Santos",
+      "filial": "Filial RJ",
+      "perfil": "Usuario",
+      "ativo": true
+    }
+  ],
+  "configuracoes": {
+    "estoque_minimo": 10,
+    "caminho_bd": "brindez.db"
+  }
+}
