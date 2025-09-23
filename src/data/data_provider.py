@@ -119,7 +119,13 @@ class DataProvider:
     def update_estoque_brinde(self, brinde_id: int, quantidade: int, tipo: str) -> bool:
         """Atualiza estoque"""
         return self._current_provider.update_estoque_brinde(brinde_id, quantidade, tipo)
-    
+
+    def find_or_create_brinde_for_transfer(self, brinde_origem: Dict[str, Any], filial_destino: str, username: str) -> Dict[str, Any]:
+        """
+        Encontra um brinde existente no destino ou cria um novo para a transferência.
+        """
+        return self._current_provider.find_or_create_brinde_for_transfer(brinde_origem, filial_destino, username)
+
     # Métodos delegados - Auxiliares
     def get_categorias(self) -> List[str]:
         """Obtém categorias"""
@@ -128,8 +134,8 @@ class DataProvider:
     def get_unidades_medida(self) -> List[str]:
         """Obtém unidades de medida"""
         return self._current_provider.get_unidades_medida()
-    
-    def get_filiais(self) -> List[str]:
+
+    def get_filiais(self) -> List[Dict[str, Any]]:
         """Obtém filiais"""
         return self._current_provider.get_filiais()
     

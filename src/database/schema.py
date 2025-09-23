@@ -75,6 +75,24 @@ class DatabaseSchema:
             )
         """)
         
+        # Inserir filial padrão se não existir
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM filiais")
+        if cursor.fetchone()[0] == 0:
+            filiais_iniciais = [
+                ('001', 'Matriz', 'Cidade Principal', 'Rua Principal, 100', '(00) 1234-5678', 'matriz@empresa.com'),
+                ('002', 'Filial 1', 'Cidade Secundária', 'Avenida Central, 200', '(00) 8765-4321', 'filial1@empresa.com'),
+                ('003', 'Filial 2', 'Cidade Terciária', 'Alameda das Flores, 300', '(00) 5555-1234', 'filial2@empresa.com')
+            ]
+            for num, nome, cidade, endereco, telefone, email in filiais_iniciais:
+                cursor.execute(
+                    """
+                    INSERT INTO filiais (numero, nome, cidade, endereco, telefone, email, ativo)
+                    VALUES (?, ?, ?, ?, ?, ?, 1)
+                    """,
+                    (num, nome, cidade, endereco, telefone, email)
+                )
+        
         # Tabela de usuários
         conn.execute("""
             CREATE TABLE IF NOT EXISTS usuarios (

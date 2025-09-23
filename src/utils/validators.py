@@ -148,10 +148,26 @@ class BrindeValidator:
         
         # Filial
         Validators.validate_required(data.get('filial'), 'Filial')
-        validated_data['filial'] = Validators.validate_choice(
-            data['filial'], 'Filial', filiais
-        )
+        filial_value = data['filial']
         
+        # Se for uma lista (checkbox_group), validar cada item
+        if isinstance(filial_value, list):
+            if not filial_value:  # Lista vazia
+                raise ValidationError("Pelo menos uma filial deve ser selecionada")
+            
+            # Validar cada filial da lista
+            for filial in filial_value:
+                if filial not in filiais:
+                    filiais_str = ", ".join(str(f) for f in filiais)
+                    raise ValidationError(f"A filial '{filial}' não é válida. Opções disponíveis: {filiais_str}")
+            
+            validated_data['filial'] = filial_value
+        else:
+            # Se for um único valor (combobox)
+            validated_data['filial'] = Validators.validate_choice(
+                filial_value, 'Filial', filiais
+            )
+
         # Campos opcionais
         if data.get('codigo'):
             validated_data['codigo'] = Validators.validate_string_length(

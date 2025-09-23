@@ -201,23 +201,22 @@ class MockDataManager:
         
         for i, brinde in enumerate(brindes):
             if brinde.get('id') == brinde_id:
-                # Manter ID e dados de criação
-                brinde_data['id'] = brinde['id']
-                brinde_data['data_cadastro'] = brinde.get('data_cadastro')
-                brinde_data['usuario_cadastro'] = brinde.get('usuario_cadastro')
-                
+                # Preparar dados para atualização
+                update_payload = brinde_data.copy()
+
                 # Adicionar timestamp de atualização
-                brinde_data['data_atualizacao'] = datetime.now().isoformat()
+                update_payload['data_atualizacao'] = datetime.now().isoformat()
                 
                 # Converter valores numéricos
-                if 'quantidade' in brinde_data:
-                    brinde_data['quantidade'] = int(brinde_data['quantidade'])
-                if 'valor_unitario' in brinde_data:
-                    brinde_data['valor_unitario'] = float(str(brinde_data['valor_unitario']).replace(',', '.'))
+                if 'quantidade' in update_payload:
+                    update_payload['quantidade'] = int(update_payload['quantidade'])
+                if 'valor_unitario' in update_payload:
+                    update_payload['valor_unitario'] = float(str(update_payload['valor_unitario']).replace(',', '.'))
                 
-                self.data['brindes'][i] = brinde_data
+                # Atualizar o dicionário existente em vez de substituí-lo
+                self.data['brindes'][i].update(update_payload)
                 self.save_data()
-                return brinde_data
+                return self.data['brindes'][i]
         
         return None
     
@@ -304,6 +303,30 @@ class MockDataManager:
         
         return movimentacoes
     
+    def find_or_create_brinde_for_transfer(self, brinde_origem: Dict[str, Any], filial_destino: str, username: str) -> Dict[str, Any]:
+        """
+        Encontra um brinde existente no destino ou cria um novo para a transferência (versão mock).
+        """
+        # Verificar se já existe um brinde com a mesma descrição na filial de destino
+        brindes_destino = self.get_brindes(filial_filter=filial_destino)
+        brinde_destino_existente = next((b for b in brindes_destino if b['descricao'] == brinde_origem['descricao']), None)
+
+        if brinde_destino_existente:
+            return brinde_destino_existente
+
+        # Se não existir, criar um novo brinde na filial de destino com estoque zero
+        else:
+            novo_brinde_data = {
+                'descricao': brinde_origem['descricao'],
+                'categoria': brinde_origem['categoria'],
+                'quantidade': 0,  # Começa com zero
+                'valor_unitario': brinde_origem['valor_unitario'],
+                'unidade_medida': brinde_origem['unidade_medida'],
+                'filial': filial_destino,
+                'usuario_cadastro': username
+            }
+            return self.create_brinde(novo_brinde_data)
+
     # Métodos auxiliares
     def get_categorias(self) -> List[str]:
         """Obtém lista de categorias ativas"""

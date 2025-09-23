@@ -42,7 +42,7 @@ class FormDialog:
         self.dialog.resizable(False, False)
         
         # Centralizar na tela
-        self.center_dialog()
+        self.dialog.after(100, self.center_dialog)  # Atrasar a centralização
         
         # Configurar como modal
         self.dialog.transient(self.parent)
@@ -50,13 +50,15 @@ class FormDialog:
         
         # Configurar grid
         self.dialog.grid_columnconfigure(0, weight=1)
-        self.dialog.grid_rowconfigure(1, weight=1)
-        
+        self.dialog.grid_rowconfigure(0, weight=0)  # Header
+        self.dialog.grid_rowconfigure(1, weight=1)  # Form
+        self.dialog.grid_rowconfigure(2, weight=0)  # Buttons
+
         # Criar interface
         self.create_header()
         self.create_form(data)
         self.create_buttons()
-        
+
         # Configurar eventos
         self.dialog.protocol("WM_DELETE_WINDOW", self.cancel)
         
@@ -84,21 +86,22 @@ class FormDialog:
         title_label.pack(pady=15)
     
     def create_form(self, data=None):
-        """Cria o formulário"""
-        # Frame scrollável para o formulário
-        form_frame = ctk.CTkScrollableFrame(self.dialog)
-        form_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
-        form_frame.grid_columnconfigure(0, weight=1)
+        """Cria o formulário com estrutura simplificada"""
+        # Frame scrollável simples para o formulário
+        self.form_frame = ctk.CTkScrollableFrame(self.dialog, height=400)
+        self.form_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
+        self.form_frame.grid_columnconfigure(0, weight=1)
         
-        # Criar campos
+        # Criar campos diretamente no form_frame
         for i, field in enumerate(self.fields):
-            self.create_field(form_frame, field, i, data)
-    
+            self.create_field(self.form_frame, field, i, data)
+
     def create_field(self, parent, field, row, data=None):
-        """Cria um campo do formulário"""
-        field_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        field_frame.grid(row=row, column=0, sticky="ew", pady=5)
-        field_frame.grid_columnconfigure(0, weight=1)
+        """Cria um campo do formulário com estrutura simplificada"""
+        # Container para o campo
+        field_container = ctk.CTkFrame(parent, fg_color="transparent")
+        field_container.grid(row=row, column=0, sticky="ew", pady=5, padx=5)
+        field_container.grid_columnconfigure(0, weight=1)
         
         # Label do campo
         label_text = field['label']
@@ -106,7 +109,7 @@ class FormDialog:
             label_text += " *"
             
         label = ctk.CTkLabel(
-            field_frame,
+            field_container,
             text=label_text,
             font=ctk.CTkFont(size=12, weight="bold"),
             anchor="w"
@@ -116,42 +119,68 @@ class FormDialog:
         # Widget do campo baseado no tipo
         field_type = field.get('type', 'entry')
         field_key = field['key']
+        widget = None
         
         if field_type == 'entry':
             widget = ctk.CTkEntry(
-                field_frame,
+                field_container,
                 placeholder_text=field.get('placeholder', ''),
                 height=35
             )
             
         elif field_type == 'textarea':
             widget = ctk.CTkTextbox(
-                field_frame,
+                field_container,
                 height=80
             )
             
         elif field_type == 'combobox':
             widget = ctk.CTkComboBox(
-                field_frame,
+                field_container,
                 values=field.get('options', []),
                 height=35
             )
             
         elif field_type == 'number':
             widget = ctk.CTkEntry(
-                field_frame,
+                field_container,
                 placeholder_text=field.get('placeholder', '0'),
                 height=35
             )
             
+        elif field_type == 'checkbox_group':
+            # Para checkbox_group, criar um frame simples
+            widget_frame = ctk.CTkFrame(field_container, fg_color="transparent")
+            widget_frame.grid(row=1, column=0, sticky="ew", pady=2)
+            
+            checkboxes = {}
+            options = field.get('options', [])
+            
+            for i, option in enumerate(options):
+                var = ctk.IntVar()
+                cb = ctk.CTkCheckBox(widget_frame, text=str(option), variable=var)
+                cb.grid(row=i, column=0, padx=5, pady=2, sticky="w")
+                checkboxes[str(option)] = var
+            
+            widget = checkboxes
+            # Para checkbox_group, não chamamos grid() porque já foi posicionado
+            
+        elif field_type == 'checkbox':
+            widget = ctk.CTkCheckBox(field_container, text="")
+            
+        elif field_type == 'label':
+            widget = ctk.CTkLabel(field_container, text="", anchor="w", justify="left")
+            
         else:  # entry padrão
             widget = ctk.CTkEntry(
-                field_frame,
+                field_container,
                 placeholder_text=field.get('placeholder', ''),
                 height=35
             )
         
-        widget.grid(row=1, column=0, sticky="ew")
+        # Posicionar o widget (exceto checkbox_group que já foi posicionado)
+        if field_type != 'checkbox_group' and widget is not None:
+            widget.grid(row=1, column=0, sticky="ew", pady=2)
         
         # Armazenar referência do widget
         self.field_widgets[field_key] = {
@@ -179,6 +208,13 @@ class FormDialog:
             widget.insert("1.0", str(value))
         elif field_type == 'combobox':
             widget.set(str(value))
+        elif field_type == 'checkbox_group':
+            for key, var in widget.items():
+                var.set(1 if key in value else 0)
+        elif field_type == 'checkbox':
+            widget.select() if value else widget.deselect()
+        elif field_type == 'label':
+            widget.configure(text=str(value))
         else:  # entry, number
             widget.delete(0, "end")
             widget.insert(0, str(value))
@@ -196,6 +232,12 @@ class FormDialog:
             return widget.get("1.0", "end-1c").strip()
         elif field_type == 'combobox':
             return widget.get()
+        elif field_type == 'checkbox_group':
+            return [key for key, var in widget.items() if var.get() == 1]
+        elif field_type == 'checkbox':
+            return widget.get() == 1
+        elif field_type == 'label':
+            return None # Labels não têm valor
         else:  # entry, number
             return widget.get().strip()
     

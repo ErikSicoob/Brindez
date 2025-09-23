@@ -41,22 +41,90 @@ Sistema desktop para controle e gestão de estoque de brindes corporativos, dese
 - **CustomTkinter 5.2.0** - Interface gráfica moderna
 - **SQLite** - Banco de dados local
 - **Pillow** - Manipulação de imagens
+- **psutil** - Monitoramento de sistema
 
-## 📦 Instalação
+## 🚀 Começando
 
 ### Pré-requisitos
+
 - Python 3.11 ou superior
 - pip (gerenciador de pacotes Python)
+- Git (opcional, para controle de versão)
 
-### Instalação das Dependências
-```bash
-pip install -r requirements.txt
-```
+### Configuração do Ambiente de Desenvolvimento
 
-### Executar a Aplicação
-```bash
-python main.py
-```
+1. **Clonar o repositório** (se ainda não tiver feito)
+   ```bash
+   git clone https://github.com/seu-usuario/Brindez.git
+   cd Brindez
+   ```
+
+2. **Criar e ativar ambiente virtual**
+   - **Windows (PowerShell/CMD):**
+     ```bash
+     python -m venv .venv
+     .\.venv\Scripts\activate
+     ```
+   - **Linux/macOS:**
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+     ```
+
+3. **Instalar dependências**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Executar a aplicação**
+   ```bash
+   python main.py
+   ```
+
+### Estrutura do Ambiente Virtual
+
+O ambiente virtual (`.venv`) é ignorado pelo Git. Ele contém:
+- Interpretador Python isolado
+- Bibliotecas instaladas via pip
+- Scripts de ativação
+
+### Comandos Úteis
+
+- **Ativar ambiente virtual:**
+  ```bash
+  # Windows
+  .\.venv\Scripts\activate
+  
+  # Linux/macOS
+  source .venv/bin/activate
+  ```
+
+- **Desativar ambiente virtual:**
+  ```bash
+  deactivate
+  ```
+
+- **Atualizar dependências:**
+  ```bash
+  pip install --upgrade -r requirements.txt
+  ```
+
+- **Congelar dependências (após adicionar novas):**
+  ```bash
+  pip freeze > requirements.txt
+  ```
+
+### Dependências do Projeto
+
+O projeto utiliza as seguintes dependências principais:
+
+- **customtkinter**: Interface gráfica moderna
+- **Pillow**: Processamento de imagens
+- **psutil**: Monitoramento de sistema
+- **python-dateutil**: Manipulação de datas
+- **pytz**: Tratamento de timezones
+
+Consulte o arquivo `requirements.txt` para a lista completa de dependências.
 
 ## 📁 Estrutura do Projeto
 
@@ -84,8 +152,21 @@ Brindez/
 │   │       ├── movimentacoes.py  # Movimentações
 │   │       ├── relatorios.py     # Relatórios
 │   │       └── configuracoes.py  # Configurações
+│   ├── data/
+│   │   ├── __init__.py
+│   │   ├── data_provider.py # Provedor de dados (abstração)
+│   │   └── mock_data.py     # Dados mocados para desenvolvimento
+│   ├── database/
+│   │   ├── __init__.py
+│   │   ├── schema.py        # Schema e criação do banco
+│   │   ├── models.py        # Modelos de acesso às tabelas
+│   │   └── data_manager.py  # Gerenciador de dados do banco
 │   └── utils/             # Utilitários
 │       ├── __init__.py
+│       ├── formatters.py    # Funções de formatação (moeda, datas)
+│       ├── validators.py    # Validadores e regras de negócio
+│       ├── audit_logger.py  # Sistema de log e auditoria
+│       ├── performance.py   # Otimização de performance e cache
 │       └── user_manager.py # Gerenciamento de usuários
 ```
 

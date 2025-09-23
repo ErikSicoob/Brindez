@@ -63,13 +63,12 @@ class DatabaseDataManager:
         return affected > 0
     
     # Métodos para Filiais
-    def get_filiais(self) -> List[str]:
-        """Retorna lista de nomes de filiais ativas"""
+    def get_filiais(self) -> List[Dict[str, Any]]:
+        """Retorna lista de dicionários de filiais ativas"""
         if not self._cache['filiais']:
-            filiais = filial_model.get_all(ativo_apenas=True)
-            self._cache['filiais'] = [f['nome'] for f in filiais]
+            self._cache['filiais'] = filial_model.get_all(ativo_apenas=True)
         return self._cache['filiais']
-    
+
     def get_filiais_completas(self) -> List[Dict[str, Any]]:
         """Retorna dados completos das filiais"""
         return filial_model.get_all(ativo_apenas=True)
@@ -270,6 +269,31 @@ class DatabaseDataManager:
         
         return brinde_model.update_quantidade(brinde_id, novo_estoque)
     
+    def find_or_create_brinde_for_transfer(self, brinde_origem: Dict[str, Any], filial_destino_nome: str, username: str) -> Dict[str, Any]:
+        """
+        Encontra um brinde com a mesma descrição na filial de destino.
+        Se não encontrar, cria um novo com estoque zero.
+        """
+        # Verificar se já existe um brinde com a mesma descrição na filial de destino
+        brindes_destino = self.get_brindes(filial_filter=filial_destino_nome)
+        brinde_destino_existente = next((b for b in brindes_destino if b['descricao'] == brinde_origem['descricao']), None)
+
+        if brinde_destino_existente:
+            return brinde_destino_existente
+
+        # Se não existir, criar um novo brinde na filial de destino com estoque zero
+        else:
+            novo_brinde_data = {
+                'descricao': brinde_origem['descricao'],
+                'categoria': brinde_origem['categoria'],
+                'quantidade': 0, # Começa com zero, a movimentação irá adicionar o estoque
+                'valor_unitario': brinde_origem['valor_unitario'],
+                'unidade_medida': brinde_origem['unidade_medida'],
+                'filial': filial_destino_nome,
+                'usuario_cadastro': username
+            }
+            return self.create_brinde(novo_brinde_data)
+
     def search_brindes(self, query: str, categoria: str = None, filial: str = None) -> List[Dict[str, Any]]:
         """Busca brindes por critérios"""
         categoria_id = None

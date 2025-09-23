@@ -1,3 +1,25 @@
-customtkinter==5.2.0
-Pillow==10.0.0
-packaging==23.1
+# Dependências principais
+customtkinter>=5.2.0
+Pillow>=10.4.0
+packaging>=23.1
+psutil>=5.9.8
+
+# Dependências de desenvolvimento
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.3.0
+flake8>=6.0.0
+
+# Dependências de banco de dados
+sqlite3>=3.35.0  # Geralmente já vem com o Python
+
+# Dependências adicionais
+python-dateutil>=2.8.2  # Para manipulação de datas
+pytz>=2023.3  # Para tratamento de timezones
+
+# Para geração de relatórios (opcional - futura implementação)
+# reportlab>=4.0.0
+# openpyxl>=3.1.2
+
+# Para empacotamento (opcional - futura implementação)
+# pyinstaller>=5.13.0

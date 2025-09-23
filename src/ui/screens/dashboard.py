@@ -5,6 +5,7 @@ Tela do Dashboard - Indicadores principais
 import customtkinter as ctk
 from .base_screen import BaseScreen
 from ...data.data_provider import data_provider
+from ...utils.formatters import format_currency, format_relative_time
 from datetime import datetime
 
 class DashboardScreen(BaseScreen):

@@ -6,6 +6,7 @@ import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from .base_screen import BaseScreen
 from ..components.form_dialog import FormDialog
+from ..components.form_inline import FormInline
 from ...data.data_provider import data_provider
 from ...utils.user_manager import UserManager
 
@@ -642,6 +643,16 @@ class ConfiguracoesScreen(BaseScreen):
     def new_user(self):
         """Cria novo usuário"""
         filiais = data_provider.get_filiais()
+        
+        # Garantir que temos uma lista de dicionários
+        if filiais and isinstance(filiais[0], str):
+            filiais = [{'nome': f, 'id': i+1} for i, f in enumerate(filiais)]
+        
+        # Se não houver filiais, exibir mensagem e sair
+        if not filiais:
+            messagebox.showwarning("Aviso", "Nenhuma filial cadastrada. Cadastre uma filial antes de criar usuários.")
+            return
+            
         filiais_nomes = [f.get('nome', '') for f in filiais]
         
         fields = [
@@ -672,7 +683,8 @@ class ConfiguracoesScreen(BaseScreen):
                 'label': 'Filial',
                 'type': 'combo',
                 'required': True,
-                'options': filiais_nomes
+                'options': filiais_nomes,
+                'values': [f['id'] for f in filiais]  # Armazenar os IDs das filiais
             },
             {
                 'key': 'perfil',
@@ -685,21 +697,69 @@ class ConfiguracoesScreen(BaseScreen):
                 'key': 'ativo',
                 'label': 'Usuário Ativo',
                 'type': 'checkbox',
-                'value': True
+                'default': True
+            },
+            {
+                'key': 'senha',
+                'label': 'Senha',
+                'type': 'password',
+                'required': True,
+                'placeholder': 'Mínimo 6 caracteres'
+            },
+            {
+                'key': 'confirmar_senha',
+                'label': 'Confirmar Senha',
+                'type': 'password',
+                'required': True,
+                'placeholder': 'Digite a senha novamente'
             }
         ]
         
-        dialog = FormDialog(self.frame, "Novo Usuário", fields, self.save_new_user)
-        dialog.show()
-    
-    def save_new_user(self, data):
-        """Salva novo usuário"""
-        try:
-            usuario = data_provider.create_usuario(data)
-            messagebox.showinfo("Sucesso", "Usuário criado com sucesso!")
-            self.refresh_usuarios_tab()
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao criar usuário: {e}")
+        def on_submit(form_data):
+            # Validar senhas
+            if form_data['senha'] != form_data['confirmar_senha']:
+                messagebox.showerror("Erro", "As senhas não conferem!")
+                return
+                
+            # Verificar se o usuário já existe
+            if data_provider.get_usuario_by_username(form_data['username']):
+                messagebox.showerror("Erro", "Nome de usuário já existe!")
+                return
+                
+            # Criar dicionário de dados do usuário
+            usuario_data = {
+                'username': form_data['username'],
+                'nome': form_data['nome'],
+                'email': form_data.get('email', ''),
+                'filial_id': form_data['filial'],  # Já é o ID da filial
+                'perfil': form_data['perfil'],
+                'ativo': form_data.get('ativo', True),
+                'senha': form_data['senha']
+            }
+            
+            # Salvar usuário
+            if data_provider.criar_usuario(usuario_data):
+                messagebox.showinfo("Sucesso", "Usuário criado com sucesso!")
+                self.refresh_usuarios_tab()
+            else:
+                messagebox.showerror("Erro", "Erro ao criar usuário!")
+        
+        # Criar e exibir o formulário
+        form = FormInline(
+            self.frame,
+            title="Novo Usuário",
+            fields=fields,
+            on_submit=on_submit,
+            submit_text="Criar Usuário"
+        )
+        form.show()
+        
+        # Ocultar seções quando o formulário estiver visível
+        if hasattr(self, 'tabs_frame'):
+            self.tabs_frame.pack_forget()
+        
+        # Armazenar referência do formulário atual
+        self.current_form = form
     
     def edit_user(self, username):
         """Edita um usuário"""
@@ -711,15 +771,7 @@ class ConfiguracoesScreen(BaseScreen):
                 # Tratar diferentes tipos de dados
                 user_username = user.get('username') if isinstance(user, dict) else (user[0] if isinstance(user, tuple) else str(user))
                 if user_username == username:
-                    if isinstance(user, dict):
-                        usuario_atual = user
-                    elif isinstance(user, tuple):
-                        usuario_atual = {
-                            'username': user[0], 'nome': user[1], 'filial': user[2], 
-                            'perfil': user[3], 'ativo': user[4], 'email': '', 'id': None
-                        }
-                    else:
-                        usuario_atual = {'username': str(user), 'nome': '', 'filial': '', 'perfil': '', 'ativo': True, 'email': '', 'id': None}
+                    usuario_atual = user if isinstance(user, dict) else {'username': user[0], 'nome': user[1], 'filial': user[2], 'perfil': user[3], 'ativo': user[4], 'email': '', 'id': None}
                     break
             
             if not usuario_atual:
