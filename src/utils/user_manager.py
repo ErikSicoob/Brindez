@@ -38,6 +38,9 @@ class UserManager:
                 'active': True
             }
         }
+        
+        # Autenticar usuário automaticamente
+        self.authenticate_user()
     
     def get_windows_user(self):
         """Obtém o usuário atual do Windows"""
@@ -83,6 +86,10 @@ class UserManager:
         
         profile = self.current_user.get('profile', 'Usuario')
         
+        # Verificação especial para 'admin' - verifica se o perfil é Admin
+        if permission == 'admin':
+            return profile == 'Admin'
+        
         # Definir permissões por perfil
         permissions = {
             'Admin': [
@@ -94,7 +101,8 @@ class UserManager:
                 'generate_reports',
                 'manage_stock',
                 'transfer_items',
-                'system_config'
+                'system_config',
+                'delete_items'  # Adicionada permissão para exclusão
             ],
             'Gestor': [
                 'view_own_filial',

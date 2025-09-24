@@ -157,10 +157,9 @@ class ConfiguracoesScreen(BaseScreen):
         new_cat_btn.pack(pady=(0, 15), anchor="w")
         
         # Lista de categorias
-        categories_frame = ctk.CTkFrame(frame)
-        categories_frame.pack(fill="both", expand=True)
+        categories_frame = ctk.CTkScrollableFrame(frame, height=200)
+        categories_frame.pack(fill="both", expand=True, pady=(0, 10))
         
-        # Buscar categorias reais
         try:
             categories = data_provider.get_categorias_completas()
         except:
@@ -320,14 +319,29 @@ class ConfiguracoesScreen(BaseScreen):
             edit_btn = ctk.CTkButton(filial_frame, text="✏️", width=30, height=25, command=lambda n=numero: self.edit_filial(n))
             edit_btn.grid(row=0, column=1, padx=5)
             
-            toggle_btn = ctk.CTkButton(
-                filial_frame, 
-                text="🔄", 
-                width=30, 
-                height=25, 
-                command=lambda n=numero: self.toggle_filial(n)
-            )
-            toggle_btn.grid(row=0, column=2, padx=5)
+            # Botão de exclusão apenas para administradores
+            user_manager = UserManager()
+            if user_manager.has_permission('admin'):
+                delete_btn = ctk.CTkButton(
+                    filial_frame, 
+                    text="🗑️", 
+                    width=30, 
+                    height=25,
+                    fg_color=("red", "darkred"),
+                    hover_color=("darkred", "red"),
+                    command=lambda n=numero: self.delete_filial(n)
+                )
+                delete_btn.grid(row=0, column=2, padx=5)
+            else:
+                # Para não administradores, mostrar botão de alteração de status
+                toggle_btn = ctk.CTkButton(
+                    filial_frame, 
+                    text="🔄", 
+                    width=30, 
+                    height=25, 
+                    command=lambda n=numero: self.toggle_filial(n)
+                )
+                toggle_btn.grid(row=0, column=2, padx=5)
     
     def create_sistema_tab(self):
         """Cria a aba de configurações do sistema"""
@@ -495,7 +509,7 @@ class ConfiguracoesScreen(BaseScreen):
                 return
             
             # Buscar ID da categoria
-            categorias = data_provider.get_categorias()
+            categorias = data_provider.get_categorias_completas()
             categoria_id = None
             for cat in categorias:
                 if cat.get('nome') == category:
@@ -620,7 +634,7 @@ class ConfiguracoesScreen(BaseScreen):
                 return
             
             # Buscar ID da unidade
-            unidades = data_provider.get_unidades_medida()
+            unidades = data_provider.get_unidades_medida_completas()
             unidade_id = None
             for un in unidades:
                 if un.get('codigo') == unit:
@@ -738,7 +752,7 @@ class ConfiguracoesScreen(BaseScreen):
             }
             
             # Salvar usuário
-            if data_provider.criar_usuario(usuario_data):
+            if data_provider.create_usuario(usuario_data):
                 messagebox.showinfo("Sucesso", "Usuário criado com sucesso!")
                 self.refresh_usuarios_tab()
             else:
@@ -1061,6 +1075,62 @@ class ConfiguracoesScreen(BaseScreen):
                 
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao alterar status da filial: {e}")
+    
+    def delete_filial(self, numero):
+        """Exclui uma filial (apenas administradores)"""
+        try:
+            # Verificar permissão de administrador
+            user_manager = UserManager()
+            if not user_manager.has_permission('admin'):
+                messagebox.showerror("Acesso Negado", "Apenas administradores podem excluir filiais.")
+                return
+            
+            # Buscar filial
+            filiais = data_provider.get_filiais_completas()
+            filial = None
+            for fil in filiais:
+                if fil.get('numero') == numero:
+                    filial = fil
+                    break
+            
+            if not filial:
+                messagebox.showerror("Erro", "Filial não encontrada!")
+                return
+            
+            # Verificar se há brindes ou usuários vinculados à filial
+            brindes = data_provider.get_brindes()
+            brindes_vinculados = [b for b in brindes if b.get('filial') == filial.get('nome')]
+            
+            usuarios = data_provider.get_usuarios()
+            usuarios_vinculados = [u for u in usuarios if u.get('filial_id') == filial.get('id')]
+            
+            if brindes_vinculados or usuarios_vinculados:
+                messagebox.showwarning(
+                    "Exclusão Impedida",
+                    f"Não é possível excluir a filial '{filial.get('nome')}' pois há:\n"
+                    f"• {len(brindes_vinculados)} brinde(s) vinculado(s)\n"
+                    f"• {len(usuarios_vinculados)} usuário(s) vinculado(s)\n\n"
+                    f"Remova ou transfira estes itens antes de excluir a filial."
+                )
+                return
+            
+            # Confirmar exclusão
+            resposta = messagebox.askyesno(
+                "Confirmar Exclusão",
+                f"Tem certeza que deseja excluir a filial '{filial.get('nome')}'?\n\n"
+                f"Esta ação não pode ser desfeita!"
+            )
+            
+            if resposta:
+                sucesso = data_provider.delete_filial(filial.get('id'))
+                if sucesso:
+                    messagebox.showinfo("Sucesso", "Filial excluída com sucesso!")
+                    self.refresh_filiais_tab()
+                else:
+                    messagebox.showerror("Erro", "Erro ao excluir filial!")
+                
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao excluir filial: {e}")
     
     def backup_database(self):
         """Faz backup do banco de dados"""

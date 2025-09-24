@@ -230,7 +230,7 @@ class TestSystemIntegration(unittest.TestCase):
 
 def run_performance_tests():
     """Executa testes de performance"""
-    print("\n🚀 Executando testes de performance...")
+    print("\nExecutando testes de performance...")
     
     import time
     from src.utils.performance import performance_monitor
@@ -245,44 +245,44 @@ def run_performance_tests():
     end_time = time.time()
     total_time = end_time - start_time
     
-    print(f"✅ 100 consultas de categorias: {total_time:.3f}s")
-    print(f"📊 Média por consulta: {(total_time/100)*1000:.1f}ms")
+    print(f"100 consultas de categorias: {total_time:.3f}s")
+    print(f"Media por consulta: {(total_time/100)*1000:.1f}ms")
     
     # Obter métricas
     metrics = performance_monitor.get_metrics()
     if metrics:
-        print("\n📈 Métricas de performance:")
+        print("\nMetricas de performance:")
         for operation, data in metrics.items():
             print(f"  {operation}: {data['avg_time']*1000:.1f}ms avg, {data['total_calls']} calls")
 
 def run_memory_tests():
     """Executa testes de memória"""
-    print("\n🧠 Executando testes de memória...")
+    print("\nExecutando testes de memoria...")
     
     try:
         from src.utils.performance import performance_optimizer
         
         memory_info = performance_optimizer.memory_manager.get_memory_usage()
-        print(f"✅ Uso de memória: {memory_info['rss'] / 1024 / 1024:.1f} MB")
-        print(f"📊 Percentual: {memory_info['percent']:.1f}%")
+        print(f"Uso de memoria: {memory_info['rss'] / 1024 / 1024:.1f} MB")
+        print(f"Percentual: {memory_info['percent']:.1f}%")
         
         # Teste de limpeza
         collected = performance_optimizer.memory_manager.cleanup_unused_objects()
-        print(f"🧹 Objetos coletados: {collected}")
+        print(f"Objetos coletados: {collected}")
         
     except Exception as e:
-        print(f"⚠️  Teste de memória falhou: {e}")
+        print(f"Teste de memoria falhou: {e}")
 
 def main():
     """Função principal de testes"""
-    print("🧪 Sistema de Testes - Controle de Brindes")
+    print("Sistema de Testes - Controle de Brindes")
     print("=" * 50)
     
     # Configurar ambiente de teste
     os.environ['TESTING'] = '1'
     
     # Executar testes unitários
-    print("\n🔍 Executando testes unitários...")
+    print("\nExecutando testes unitarios...")
     
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
@@ -305,28 +305,28 @@ def main():
     run_memory_tests()
     
     # Relatório final
-    print("\n📋 Relatório Final:")
-    print(f"✅ Testes executados: {result.testsRun}")
-    print(f"❌ Falhas: {len(result.failures)}")
-    print(f"🚫 Erros: {len(result.errors)}")
+    print("\nRelatorio Final:")
+    print(f"Testes executados: {result.testsRun}")
+    print(f"Falhas: {len(result.failures)}")
+    print(f"Erros: {len(result.errors)}")
     
     if result.failures:
-        print("\n❌ Falhas encontradas:")
+        print("\nFalhas encontradas:")
         for test, traceback in result.failures:
             print(f"  - {test}: {traceback.split('AssertionError:')[-1].strip()}")
     
     if result.errors:
-        print("\n🚫 Erros encontrados:")
+        print("\nErros encontrados:")
         for test, traceback in result.errors:
             print(f"  - {test}: {traceback.split('Exception:')[-1].strip()}")
     
     success = len(result.failures) == 0 and len(result.errors) == 0
     
     if success:
-        print("\n🎉 Todos os testes passaram!")
+        print("\nTodos os testes passaram!")
         return True
     else:
-        print("\n⚠️  Alguns testes falharam!")
+        print("\nAlguns testes falharam!")
         return False
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ class MainWindow:
         self.header.frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 5))
         
         # Content Area (área de conteúdo) - criar primeiro
-        self.content_area = ContentArea(self.root)
+        self.content_area = ContentArea(self.root, self.current_user)
         self.content_area.frame.grid(row=1, column=1, sticky="nsew", padx=(5, 10), pady=(0, 10))
         
         # Sidebar (menu lateral) - criar depois do content_area

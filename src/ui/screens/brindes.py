@@ -3,26 +3,73 @@ Tela de Gestão de Brindes
 """
 
 import customtkinter as ctk
-from tkinter import messagebox, Menu as tkMenu
+from tkinter import messagebox
 from .base_screen import BaseScreen
 from ..components.form_dialog import FormDialog
 from ...data.data_provider import data_provider
-from ...utils.user_manager import UserManager
 from ...utils.validators import BrindeValidator, MovimentacaoValidator, ValidationError, BusinessRuleError
 
 class BrindesScreen(BaseScreen):
     """Tela de gestão de brindes"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, user_manager):
         """Inicializa a tela de brindes"""
-        super().__init__(parent, "Brindes")
-        self.user_manager = UserManager()
+        super().__init__(parent, user_manager)
         self.current_brindes = []
         self.filtered_brindes = []
         self.current_page = 1
         self.items_per_page = 10
         self.total_pages = 1
+        # Carregar dados iniciais de forma segura
+        self._load_initial_data()
         self.setup_ui()
+        
+    def after(self, ms, func=None, *args):
+        """Implementação do método after para agendamento de tarefas"""
+        if func is not None:
+            # Usar o frame principal para agendar a tarefa
+            return self.frame.after(ms, func, *args)
+        return None
+    
+    def _load_initial_data(self):
+        """Carrega dados iniciais de forma segura"""
+        try:
+            raw_data = data_provider.get_brindes()
+            # Filtrar apenas objetos válidos
+            self.current_brindes = []
+            for item in raw_data:
+                if item and isinstance(item, dict) and 'codigo' in item and 'descricao' in item:
+                    self.current_brindes.append(item)
+            
+            self.filtered_brindes = self.current_brindes.copy()
+            print(f"Dados carregados: {len(self.current_brindes)} brindes válidos")
+        except Exception as e:
+            print(f"Erro ao carregar dados iniciais: {e}")
+            self.current_brindes = []
+            self.filtered_brindes = []
+    
+    def _validate_brinde(self, brinde):
+        """Valida se um brinde é um objeto válido"""
+        return (brinde and 
+                isinstance(brinde, dict) and 
+                'codigo' in brinde and 
+                'descricao' in brinde and 
+                'id' in brinde)
+    
+    def _safe_get_brindes(self):
+        """Obtém brindes de forma segura, filtrando objetos inválidos"""
+        try:
+            raw_data = data_provider.get_brindes()
+            valid_brindes = []
+            for item in raw_data:
+                if self._validate_brinde(item):
+                    valid_brindes.append(item)
+                else:
+                    print(f"Brinde inválido ignorado: {item}")
+            return valid_brindes
+        except Exception as e:
+            print(f"Erro ao obter brindes: {e}")
+            return []
     
     def setup_ui(self):
         """Configura a interface de brindes"""
@@ -101,6 +148,7 @@ class BrindesScreen(BaseScreen):
         
         self.search_entry = ctk.CTkEntry(filters_frame, placeholder_text="Digite para buscar...")
         self.search_entry.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        self.search_entry.bind("<KeyRelease>", self.on_search_change)
         
         # Filtro por categoria
         category_label = ctk.CTkLabel(filters_frame, text="📂 Categoria:")
@@ -108,7 +156,8 @@ class BrindesScreen(BaseScreen):
         
         self.category_combo = ctk.CTkComboBox(
             filters_frame,
-            values=["Todas", "Canetas", "Chaveiros", "Camisetas", "Blocos", "Outros"]
+            values=["Todas", "Canetas", "Chaveiros", "Camisetas", "Blocos", "Outros"],
+            command=self.on_filter_change
         )
         self.category_combo.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
         
@@ -118,12 +167,66 @@ class BrindesScreen(BaseScreen):
         
         self.filial_combo = ctk.CTkComboBox(
             filters_frame,
-            values=["Todas", "Matriz", "Filial SP", "Filial RJ", "Filial BH"]
+            values=["Todas", "Matriz", "Filial SP", "Filial RJ", "Filial BH"],
+            command=self.on_filter_change
         )
         self.filial_combo.grid(row=1, column=2, padx=10, pady=(0, 10), sticky="ew")
         
         # Tabela de brindes
         self.create_brindes_table(content_frame)
+    
+    def on_search_change(self, event=None):
+        """Callback para mudanças no campo de busca"""
+        # Usar debounce para evitar muitas chamadas
+        if hasattr(self, '_search_timer'):
+            self.parent.after_cancel(self._search_timer)
+        
+        self._search_timer = self.parent.after(500, self.apply_filters)
+    
+    def on_filter_change(self, value=None):
+        """Callback para mudanças nos filtros de categoria e filial"""
+        self.apply_filters()
+    
+    def apply_filters(self):
+        """Aplica todos os filtros de forma otimizada"""
+        try:
+            # Começar com todos os brindes válidos
+            self.filtered_brindes = [b for b in self.current_brindes if self._validate_brinde(b)]
+            
+            # Obter valores dos filtros de forma segura
+            search_text = ""
+            categoria = "Todas"
+            filial = "Todas"
+            
+            if hasattr(self, 'search_entry') and self.search_entry.winfo_exists():
+                search_text = self.search_entry.get().strip().lower()
+            
+            if hasattr(self, 'category_combo') and self.category_combo.winfo_exists():
+                categoria = self.category_combo.get()
+            
+            if hasattr(self, 'filial_combo') and self.filial_combo.winfo_exists():
+                filial = self.filial_combo.get()
+            
+            # Aplicar filtros
+            if search_text:
+                self.filtered_brindes = [
+                    b for b in self.filtered_brindes 
+                    if search_text in str(b.get('codigo', '')).lower() or 
+                       search_text in str(b.get('descricao', '')).lower()
+                ]
+            
+            if categoria and categoria != "Todas":
+                self.filtered_brindes = [b for b in self.filtered_brindes if b.get('categoria') == categoria]
+            
+            if filial and filial != "Todas":
+                self.filtered_brindes = [b for b in self.filtered_brindes if b.get('filial') == filial]
+            
+            # Resetar para primeira página
+            self.current_page = 1
+            
+        except Exception as e:
+            print(f"Erro ao aplicar filtros: {e}")
+            self.filtered_brindes = [b for b in self.current_brindes if self._validate_brinde(b)]
     
     def create_brindes_table(self, parent):
         """Cria a tabela de brindes com paginação"""
@@ -139,7 +242,9 @@ class BrindesScreen(BaseScreen):
         
         # Carregar dados se necessário
         if not self.current_brindes:
-            self.current_brindes = data_provider.get_brindes()
+            raw_data = data_provider.get_brindes()
+            # Filtrar valores None ou inválidos
+            self.current_brindes = [b for b in raw_data if b and isinstance(b, dict)]
             self.filtered_brindes = self.current_brindes.copy()
         
         # Calcular paginação
@@ -150,7 +255,7 @@ class BrindesScreen(BaseScreen):
         header_frame.pack(fill="x", pady=(0, 2))
         
         # Configurar pesos das colunas
-        columns = 7  # Total de colunas
+        columns = 6  # Total de colunas
         for i in range(columns):
             header_frame.columnconfigure(i, weight=1, uniform="col")
         
@@ -161,22 +266,17 @@ class BrindesScreen(BaseScreen):
             "Categoria", 
             "Quantidade", 
             "Valor Unit.", 
-            "Valor Total",
-            "Ações"
+            "Valor Total"
         ]
         
-        for i, header in enumerate(headers):
-            anchor = "w" if i < 3 else "e"  # Alinhar texto à esquerda, números à direita
-            if i == len(headers) - 1:  # Última coluna (ações)
-                anchor = "center"
-                
+        for col, header in enumerate(headers):
             label = ctk.CTkLabel(
                 header_frame, 
                 text=header, 
                 font=ctk.CTkFont(weight="bold"),
-                anchor=anchor
+                anchor="center"
             )
-            label.grid(row=0, column=i, padx=5, pady=8, sticky="nsew")
+            label.grid(row=0, column=col, padx=5, pady=10, sticky="ew")
         
         # Frame para conteúdo da tabela (scrollable)
         if hasattr(self, 'content_frame'):
@@ -225,11 +325,21 @@ class BrindesScreen(BaseScreen):
     
     def create_brinde_row(self, brinde, row_index):
         """Cria uma linha da tabela para um brinde"""
-        codigo = brinde.get('codigo', '')
-        desc = brinde.get('descricao', '')
-        cat = brinde.get('categoria', '')
-        qty = brinde.get('quantidade', 0)
-        valor_unit = brinde.get('valor_unitario', 0)
+        try:
+            # Verificar se brinde é válido
+            if not brinde or not isinstance(brinde, dict):
+                print(f"ERRO: Brinde inválido na linha {row_index}: {brinde} (tipo: {type(brinde)})")
+                return
+                
+            codigo = brinde.get('codigo', '')
+            desc = brinde.get('descricao', '')
+            cat = brinde.get('categoria', '')
+            qty = brinde.get('quantidade', 0)
+            valor_unit = brinde.get('valor_unitario', 0)
+        except Exception as e:
+            print(f"ERRO em create_brinde_row linha {row_index}: {e}")
+            print(f"Brinde problemático: {brinde}")
+            return
         
         # Formatar valores monetários
         valor_unit_fmt = f"R$ {valor_unit:,.2f}".replace('.', '|').replace(',', '.').replace('|', ',')
@@ -241,7 +351,7 @@ class BrindesScreen(BaseScreen):
         row_frame.pack(fill="x", pady=1)
         
         # Configurar colunas
-        for i in range(7):  # 7 colunas
+        for i in range(6):  # 6 colunas
             row_frame.columnconfigure(i, weight=1, uniform="col")
         
         # Dados da linha
@@ -251,16 +361,13 @@ class BrindesScreen(BaseScreen):
             cat,
             f"{qty}",
             valor_unit_fmt,
-            valor_total_fmt,
-            ""  # Coluna vazia para o botão de menu
+            valor_total_fmt
         ]
         
         # Adicionar células
         for col, text in enumerate(cells):
             # Alinhamento: esquerda para texto, direita para números
             anchor = "w" if col < 3 else "e"
-            if col == 6:  # Última coluna (ações)
-                anchor = "center"
                 
             label = ctk.CTkLabel(
                 row_frame,
@@ -270,107 +377,84 @@ class BrindesScreen(BaseScreen):
             )
             label.grid(row=0, column=col, padx=5, pady=3, sticky="nsew")
             
-            # Adicionar evento de clique para edição
-            label.bind("<Button-1>", lambda e, c=codigo: self.edit_brinde(c))
+            # Adicionar eventos de clique
+            label.bind("<Button-1>", lambda e, c=codigo: self.edit_brinde(c))  # Clique esquerdo para editar
+            label.bind("<Button-3>", lambda e, c=codigo: self.show_context_menu_at_cursor(e, c))  # Clique direito para menu
         
-        # Adicionar botão de menu de contexto
-        menu_btn = ctk.CTkButton(
-            row_frame,
-            text="⋮",
-            width=30,
-            height=25,
-            fg_color="transparent",
-            hover_color=("gray70", "gray30"),
-            command=lambda c=codigo: self.show_context_menu(menu_btn, c)
-        )
-        menu_btn.grid(row=0, column=6, padx=5, pady=2, sticky="e")
+        # Adicionar evento de clique direito no frame da linha também
+        row_frame.bind("<Button-3>", lambda e, c=codigo: self.show_context_menu_at_cursor(e, c))
         
         # Destacar linhas com estoque baixo
         if int(qty) <= 10:
             row_frame.configure(fg_color=("#ffdddd", "#550000"))
     
-    def show_context_menu(self, widget, codigo):
-        """Mostra o menu de contexto para um brinde"""
-        # Criar menu
-        menu = ctk.CTkMenu(
-            self.frame,
-            fg_color=("gray90", "gray16"),
-            text_color=("gray10", "gray90"),
-            hover_color=("gray70", "gray30"),
-            font=("Arial", 12)
-        )
-        
-        # Adicionar itens do menu
-        menu.add_command(
-            label="Editar",
-            command=lambda: self.edit_brinde(codigo)
-        )
-        
-        if self.user_manager.has_permission('admin'):
-            menu.add_command(
-                label="Excluir",
-                command=lambda: self.delete_brinde(codigo)
-            )
-        
-        menu.add_separator()
-        menu.add_command(
-            label="Transferir",
-            command=lambda: self.transfer_brinde(codigo)
-        )
-        menu.add_command(
-            label="Entrada de Estoque",
-            command=lambda: self.entry_brinde(codigo)
-        )
-        menu.add_command(
-            label="Saída de Estoque",
-            command=lambda: self.exit_brinde(codigo)
-        )
-        
-        # Mostrar menu
-        x = widget.winfo_rootx()
-        y = widget.winfo_rooty() + widget.winfo_height()
-        menu.tk_popup(x, y)
-        menu.grab_set()
-    
-    def create_context_menu(self, event, codigo):
-        """Cria o menu de contexto para ações do brinde"""
-        # Criar o menu
-        menu = tkMenu(self.frame, tearoff=0)
-        
-        # Adicionar itens do menu
-        menu.add_command(
-            label="Editar",
-            command=lambda: self.edit_brinde(codigo)
-        )
-        
-        # Apenas administradores podem excluir
-        if self.user_manager.has_permission('admin'):
-            menu.add_command(
-                label="Excluir",
-                command=lambda: self.delete_brinde(codigo)
-            )
-        
-        # Adicionar ações de movimentação
-        menu.add_separator()
-        menu.add_command(
-            label="Transferir",
-            command=lambda: self.transfer_brinde(codigo)
-        )
-        menu.add_command(
-            label="Entrada de Estoque",
-            command=lambda: self.entry_brinde(codigo)
-        )
-        menu.add_command(
-            label="Saída de Estoque",
-            command=lambda: self.exit_brinde(codigo)
-        )
-        
+    def show_context_menu_at_cursor(self, event, codigo):
+        """Mostra o menu de contexto na posição do cursor"""
         try:
-            # Exibir o menu na posição do clique
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            # Garantir que o menu seja fechado ao liberar o botão do mouse
-            menu.grab_release()
+            import tkinter as tk
+            from tkinter import messagebox
+            
+            # Criar menu usando tkinter nativo (mais compatível)
+            menu = tk.Menu(self.frame, tearoff=0, bg="white", fg="black", 
+                          activebackground="lightblue", activeforeground="black",
+                          font=("Arial", 10))
+            
+            # Função para fechar o menu de forma segura
+            def close_menu():
+                try:
+                    menu.unpost()
+                except:
+                    pass
+            
+            # Adicionar itens do menu
+            menu.add_command(
+                label="✏️ Editar", 
+                command=lambda: [close_menu(), self.edit_brinde(codigo)]
+            )
+            
+            # Botão Excluir (sempre presente, mas com verificação interna)
+            menu.add_command(
+                label="🗑️ Excluir", 
+                command=lambda: [close_menu(), self.delete_brinde(codigo)]
+            )
+            
+            menu.add_separator()
+            
+            menu.add_command(
+                label="🔄 Transferir", 
+                command=lambda: [close_menu(), self.transfer_brinde(codigo)]
+            )
+            menu.add_command(
+                label="📥 Entrada", 
+                command=lambda: [close_menu(), self.entry_brinde(codigo)]
+            )
+            menu.add_command(
+                label="📤 Saída", 
+                command=lambda: [close_menu(), self.exit_brinde(codigo)]
+            )
+            
+            # Mostrar menu na posição do cursor
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+                
+                # Capturar eventos para fechar o menu
+                menu.bind("<FocusOut>", lambda e: close_menu())
+                menu.bind("<Escape>", lambda e: close_menu())
+                
+                # Forçar o foco para o menu
+                menu.focus_set()
+                
+            except Exception as e:
+                print(f"Erro ao exibir menu: {e}")
+                close_menu()
+                
+        except Exception as e:
+            print(f"Erro ao criar menu de contexto: {e}")
+            try:
+                messagebox.showerror("Erro", "Não foi possível exibir o menu de contexto")
+            except:
+                pass
+    
     
     def create_pagination_controls(self):
         """Cria os controles de paginação"""
@@ -436,75 +520,63 @@ class BrindesScreen(BaseScreen):
     def go_to_first_page(self):
         """Vai para a primeira página"""
         self.current_page = 1
-        self.refresh_table()
+        self.safe_refresh_table()
     
     def go_to_previous_page(self):
         """Vai para a página anterior"""
         if self.current_page > 1:
             self.current_page -= 1
-            self.refresh_table()
+            self.safe_refresh_table()
     
     def go_to_next_page(self):
         """Vai para a próxima página"""
         if self.current_page < self.total_pages:
             self.current_page += 1
-            self.refresh_table()
+            self.safe_refresh_table()
     
     def go_to_last_page(self):
         """Vai para a última página"""
         self.current_page = self.total_pages
-        self.refresh_table()
+        self.safe_refresh_table()
     
     def go_to_page(self, page):
         """Vai para uma página específica"""
         if 1 <= page <= self.total_pages:
             self.current_page = page
-            self.refresh_table()
+            self.safe_refresh_table()
     
     def refresh_table(self):
-        """Atualiza a tabela"""
-        # Limpar controles de paginação existentes
-        for widget in self.table_frame.winfo_children():
-            if isinstance(widget, ctk.CTkFrame) and widget != self.content_frame:
-                # Manter apenas o cabeçalho
-                if not any(isinstance(child, ctk.CTkLabel) and child.cget("font").cget("weight") == "bold" 
-                          for child in widget.winfo_children()):
-                    widget.destroy()
-        
-        # Recalcular paginação
-        self.calculate_pagination()
-        
-        # Renderizar página atual
-        self.render_current_page()
-        
-        # Recriar controles de paginação
-        self.create_pagination_controls()
+        """Atualiza a tabela de forma otimizada"""
+        try:
+            # Recalcular paginação
+            self.calculate_pagination()
+            
+            # Renderizar página atual
+            self.render_current_page()
+            
+            # Recriar controles de paginação
+            self.create_pagination_controls()
+        except Exception as e:
+            print(f"Erro ao atualizar tabela: {e}")
+            self.create_listing_section()
 
     def refresh_brindes_list(self):
-        """Recarrega a lista de brindes e atualiza a interface"""
+        """Recarrega a lista de brindes de forma otimizada"""
         try:
             # Recarregar dados
-            self.current_brindes = data_provider.get_brindes()
-            self.filtered_brindes = self.current_brindes.copy()
+            raw_brindes = data_provider.get_brindes()
             
-            # Verificar se a tabela existe antes de atualizar
-            if hasattr(self, 'content_frame') and self.content_frame.winfo_exists():
-                # Manter a página atual se possível
-                current_page = self.current_page
-                self.refresh_table()
-                
-                # Verificar se a página atual ainda é válida
-                if current_page > self.total_pages:
-                    self.current_page = self.total_pages
-                
-                # Forçar a renderização da página atual
-                self.render_current_page()
-            else:
-                # Se a tabela não existe, recriar completamente
-                self.create_brindes_table(self.listing_section_frame)
-                
+            # Filtrar dados válidos
+            self.current_brindes = [b for b in raw_brindes if self._validate_brinde(b)]
+            
+            # Aplicar filtros e atualizar interface
+            self.apply_filters()
+            self.refresh_table()
+            
         except Exception as e:
-            print(f"Erro ao atualizar lista de brindes: {e}")
+            print(f"Erro ao recarregar brindes: {e}")
+            self.create_listing_section()
+    
 
     def new_brinde(self):
         """Abre formulário de novo brinde"""
@@ -611,22 +683,8 @@ class BrindesScreen(BaseScreen):
                 # Criar brinde
                 data_provider.create_brinde(brinde_data)
 
-            # Atualizar listagem
-            self.current_brindes = data_provider.get_brindes()  # Recarregar todos os brindes
-            self.filtered_brindes = self.current_brindes.copy()
-
-            # Reconstruir a tabela para refletir as mudanças
-            if hasattr(self, 'content_frame') and self.content_frame.winfo_exists():
-                # Manter a página atual se possível
-                current_page = self.current_page
-                self.refresh_table()
-
-                # Verificar se a página atual ainda é válida
-                if current_page > self.total_pages:
-                    self.current_page = self.total_pages
-
-                # Forçar a renderização da página atual
-                self.render_current_page()
+            # Atualização imediata e otimizada
+            self.refresh_brindes_list()
 
             messagebox.showinfo("Sucesso", "Brinde(s) cadastrado(s) com sucesso!")
 
@@ -637,12 +695,16 @@ class BrindesScreen(BaseScreen):
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao cadastrar brinde: {e}")
     
+    def safe_refresh_table(self):
+        """Método unificado para atualização segura da tabela"""
+        self.refresh_table()
+    
     def edit_brinde(self, codigo):
         """Edita um brinde"""
-        # Encontrar brinde pelo código
+        # Encontrar brinde pelo código de forma segura
         brinde = None
         for b in self.current_brindes:
-            if b.get('codigo') == codigo:
+            if self._validate_brinde(b) and b.get('codigo') == codigo:
                 brinde = b
                 break
         
@@ -718,27 +780,12 @@ class BrindesScreen(BaseScreen):
             )
             
             # Atualizar brinde
-            brinde = data_provider.update_brinde(brinde_id, validated_data)
+            brinde_atualizado = data_provider.update_brinde(brinde_id, validated_data)
             
-            if brinde:
-                # Atualizar listagem
-                self.current_brindes = data_provider.get_brindes()  # Recarregar todos os brindes
-                self.filtered_brindes = self.current_brindes.copy()
-                
-                # Reconstruir a tabela para refletir as mudanças
-                if hasattr(self, 'content_frame') and self.content_frame.winfo_exists():
-                    # Manter a página atual
-                    current_page = self.current_page
-                    self.refresh_table()
-                    
-                    # Verificar se a página atual ainda é válida
-                    if current_page > self.total_pages:
-                        self.current_page = self.total_pages
-                    
-                    # Forçar a renderização da página atual
-                    self.render_current_page()
-                
-                messagebox.showinfo("Sucesso", f"Brinde '{brinde['descricao']}' atualizado com sucesso!")
+            if brinde_atualizado:
+                # Atualização imediata
+                self.refresh_brindes_list()
+                messagebox.showinfo("Sucesso", "Brinde atualizado com sucesso!")
                 return True
             else:
                 messagebox.showerror("Erro", "Brinde não encontrado")
@@ -756,15 +803,20 @@ class BrindesScreen(BaseScreen):
     
     def transfer_brinde(self, codigo):
         """Abre o formulário de transferência de brinde"""
-        # Encontrar o brinde clicado para obter a descrição
-        brinde_clicado = next((b for b in self.current_brindes if b.get('codigo') == codigo), None)
+        # Encontrar o brinde clicado para obter a descrição de forma segura
+        brinde_clicado = None
+        for b in self.current_brindes:
+            if self._validate_brinde(b) and b.get('codigo') == codigo:
+                brinde_clicado = b
+                break
+        
         if not brinde_clicado:
             messagebox.showerror("Erro", "Brinde não encontrado.")
             return
 
         # Encontrar todas as instâncias deste brinde em todas as filiais
         descricao_brinde = brinde_clicado['descricao']
-        brindes_em_estoque = [b for b in self.current_brindes if b.get('descricao') == descricao_brinde and b.get('quantidade', 0) > 0]
+        brindes_em_estoque = [b for b in self.current_brindes if self._validate_brinde(b) and b.get('descricao') == descricao_brinde and b.get('quantidade', 0) > 0]
 
         if not brindes_em_estoque:
             messagebox.showerror("Estoque Insuficiente", f"Não há estoque de '{descricao_brinde}' em nenhuma filial para transferir.")
@@ -881,10 +933,10 @@ class BrindesScreen(BaseScreen):
                 'filial_origem': filial_origem_nome
             })
 
-            # Atualizar a UI
+            # Atualização imediata após transferência
             self.refresh_brindes_list()
-            messagebox.showinfo("Sucesso", "Transferência realizada com sucesso!")
-            return True
+            
+            messagebox.showinfo("Sucesso", f"Transferência realizada: {quantidade_transfer} {descricao_brinde} de {filial_origem_nome} para {filial_destino_nome}")
 
         except (ValidationError, BusinessRuleError) as e:
             messagebox.showerror("Erro de Validação", str(e))
@@ -895,10 +947,10 @@ class BrindesScreen(BaseScreen):
 
     def entry_brinde(self, codigo):
         """Entrada de estoque"""
-        # Encontrar brinde pelo código
+        # Encontrar brinde pelo código de forma segura
         brinde = None
         for b in self.current_brindes:
-            if b.get('codigo') == codigo:
+            if self._validate_brinde(b) and b.get('codigo') == codigo:
                 brinde = b
                 break
         
@@ -973,17 +1025,11 @@ class BrindesScreen(BaseScreen):
             # Criar movimentação
             movimentacao = data_provider.create_movimentacao(movimentacao_data)
             
-            # Atualizar listagem
-            self.refresh_brindes_list()
-            
-            messagebox.showinfo(
-                "Sucesso", 
-                f"Entrada registrada com sucesso!\n\n"
-                f"Item: {brinde['descricao']}\n"
-                f"Quantidade: +{validated_data['quantidade']}\n"
-                f"Novo estoque: {brinde['quantidade'] + validated_data['quantidade']}"
-            )
-            return True
+            if movimentacao:
+                # Atualização imediata
+                self.refresh_brindes_list()
+                messagebox.showinfo("Sucesso", f"Entrada registrada: +{validated_data['quantidade']} {brinde['descricao']}")
+                return True
             
         except (ValidationError, BusinessRuleError) as e:
             messagebox.showerror("Erro de Validação", str(e))
@@ -994,10 +1040,10 @@ class BrindesScreen(BaseScreen):
     
     def exit_brinde(self, codigo):
         """Saída de estoque"""
-        # Encontrar brinde pelo código
+        # Encontrar brinde pelo código de forma segura
         brinde = None
         for b in self.current_brindes:
-            if b.get('codigo') == codigo:
+            if self._validate_brinde(b) and b.get('codigo') == codigo:
                 brinde = b
                 break
         
@@ -1101,41 +1147,7 @@ class BrindesScreen(BaseScreen):
         """Gera relatório"""
         messagebox.showinfo("Em Desenvolvimento", "Funcionalidade de relatório será implementada na próxima fase")
     
-    def refresh_brindes_list(self):
-        """Atualiza a lista de brindes"""
-        # Obter filtros atuais
-        categoria_filter = getattr(self, 'category_combo', None)
-        filial_filter = getattr(self, 'filial_combo', None)
-        search_filter = getattr(self, 'search_entry', None)
-        
-        categoria = categoria_filter.get() if categoria_filter else "Todas"
-        filial = filial_filter.get() if filial_filter else "Todas"
-        search = search_filter.get() if search_filter else ""
-        
-        # Buscar brindes
-        if search:
-            self.current_brindes = data_provider.search_brindes(search, categoria, filial)
-        else:
-            self.current_brindes = data_provider.get_brindes(filial if filial != "Todas" else None)
-            if categoria != "Todas":
-                self.current_brindes = [b for b in self.current_brindes if b.get('categoria') == categoria]
-        
-        # Recriar tabela
-        self.recreate_brindes_table()
     
-    def recreate_brindes_table(self):
-        """Recria a tabela de brindes"""
-        # Se a tabela já existe, apenas atualizamos os dados
-        if hasattr(self, 'table_frame') and self.table_frame.winfo_exists():
-            # Limpar a tabela existente
-            for widget in self.table_frame.winfo_children():
-                widget.destroy()
-            
-            # Recriar a tabela vazia
-            self.create_brindes_table(self.content_frame.master)  # content_frame.master é o frame que contém a tabela
-        else:
-            # Se não existe, criar a seção de listagem
-            self.create_listing_section()
     
     def delete_brinde(self, codigo):
         """Exclui um brinde (apenas administradores)"""
@@ -1145,45 +1157,56 @@ class BrindesScreen(BaseScreen):
                 messagebox.showerror("Acesso Negado", "Apenas administradores podem excluir brindes.")
                 return
             
-            # Buscar brinde
-            brinde = None
-            for b in self.current_brindes:
-                if b.get('codigo') == codigo:
-                    brinde = b
+            # Recarregar dados frescos do banco de forma segura
+            fresh_brindes = self._safe_get_brindes()
+            
+            # Buscar brinde nos dados frescos
+            brinde_para_excluir = None
+            for brinde in fresh_brindes:
+                if self._validate_brinde(brinde) and str(brinde.get('codigo', '')).strip() == str(codigo).strip():
+                    brinde_para_excluir = brinde
                     break
             
-            if not brinde:
-                messagebox.showerror("Erro", "Brinde não encontrado")
+            if not brinde_para_excluir:
+                messagebox.showerror("Erro", f"Brinde '{codigo}' não encontrado")
+                return
+            
+            brinde_id = brinde_para_excluir.get('id')
+            descricao = brinde_para_excluir.get('descricao', f'Código {codigo}')
+            
+            if not brinde_id:
+                messagebox.showerror("Erro", "ID do brinde não encontrado")
                 return
             
             # Confirmar exclusão
-            if messagebox.askyesno(
-                "Confirmar Exclusão",
-                f"Tem certeza que deseja excluir o brinde '{brinde.get('descricao')}'?",
-                icon='warning'
-            ):
-                # Excluir brinde
-                if data_provider.delete_brinde(codigo):
-                    # Atualizar listagem
-                    self.current_brindes = data_provider.get_brindes()  # Recarregar todos os brindes
-                    self.filtered_brindes = self.current_brindes.copy()
+            if messagebox.askyesno("Confirmar Exclusão", f"Excluir '{descricao}'?"):
+                # Excluir do banco
+                if data_provider.delete_brinde(brinde_id):
+                    # Atualização imediata e otimizada
+                    self.refresh_brindes_list()
                     
-                    # Reconstruir a tabela para refletir as mudanças
-                    if hasattr(self, 'content_frame') and self.content_frame.winfo_exists():
-                        # Ajustar a página atual se necessário
-                        self.calculate_pagination()
-                        if self.current_page > self.total_pages > 0:
-                            self.current_page = self.total_pages
-                        
-                        # Atualizar a tabela
-                        self.refresh_table()
-                    
-                    messagebox.showinfo("Sucesso", "Brinde excluído com sucesso!")
+                    # Mostrar mensagem de sucesso
+                    messagebox.showinfo("Sucesso", f"'{descricao}' excluído com sucesso!")
                 else:
-                    messagebox.showerror("Erro", "Não foi possível excluir o brinde")
+                    messagebox.showerror("Erro", "Falha na exclusão")
                     
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao excluir brinde: {e}")
+            print(f"ERRO delete_brinde: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Erro", "Erro interno na exclusão")
+    
+    def force_refresh_interface(self):
+        """Força atualização completa da interface"""
+        def _refresh():
+            try:
+                self.refresh_brindes_list()
+            except Exception as e:
+                print(f"Erro ao atualizar interface: {e}")
+                self.create_listing_section()
+        
+        # Agendar atualização
+        self.frame.after(100, _refresh)
     
     def on_show(self):
         """Callback quando a tela é mostrada"""

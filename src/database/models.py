@@ -361,6 +361,12 @@ class BrindeModel(BaseModel):
         
         rows = self.execute_query(query, tuple(params))
         return [dict(row) for row in rows]
+    
+    def delete(self, brinde_id: int) -> bool:
+        """Exclui um brinde (soft delete)"""
+        query = "UPDATE brindes SET ativo = 0 WHERE id = ?"
+        affected = self.execute_update(query, (brinde_id,))
+        return affected > 0
 
 class MovimentacaoModel(BaseModel):
     """Modelo para gerenciar movimentações"""

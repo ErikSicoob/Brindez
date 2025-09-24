@@ -95,6 +95,31 @@
       "codigo": "008",
       "data_cadastro": "2025-09-22T13:07:41.471597",
       "data_atualizacao": "2025-09-22T13:07:41.473369"
+    },
+    {
+      "descricao": "Teste Caneta",
+      "categoria": "Canetas",
+      "quantidade": 5,
+      "valor_unitario": 1.5,
+      "unidade_medida": "UN",
+      "filial": "Matriz",
+      "usuario_cadastro": "admin",
+      "id": 9,
+      "codigo": "009",
+      "data_cadastro": "2025-09-24T09:27:35.981313"
+    },
+    {
+      "descricao": "Teste Workflow Atualizado",
+      "categoria": "Canetas",
+      "quantidade": 20,
+      "valor_unitario": 2.0,
+      "unidade_medida": "UN",
+      "filial": "Matriz",
+      "usuario_cadastro": "admin",
+      "id": 10,
+      "codigo": "010",
+      "data_cadastro": "2025-09-24T09:27:36.011698",
+      "data_atualizacao": "2025-09-24T09:27:36.014036"
     }
   ],
   "categorias": [
@@ -203,6 +228,18 @@
       "filial": "Matriz",
       "id": 1,
       "data_hora": "2025-09-22T13:07:41.475068"
+    },
+    {
+      "brinde_id": 10,
+      "brinde_codigo": "010",
+      "brinde_descricao": "Teste Workflow Atualizado",
+      "tipo": "entrada",
+      "quantidade": 5,
+      "usuario": "admin",
+      "observacoes": "Teste de entrada",
+      "filial": "Matriz",
+      "id": 2,
+      "data_hora": "2025-09-24T09:27:36.016344"
     }
   ],
   "usuarios": [

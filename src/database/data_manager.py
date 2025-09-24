@@ -483,7 +483,7 @@ class DatabaseDataManager:
             self.clear_cache()
             
             # Auditoria
-            audit_logger.audit_categoria_deleted(categoria_id, None)
+            audit_logger.audit_categoria_deleted(categoria_id)
         
         return sucesso
     
@@ -543,7 +543,7 @@ class DatabaseDataManager:
             self.clear_cache()
             
             # Auditoria
-            audit_logger.audit_unidade_deleted(unidade_id, None)
+            audit_logger.audit_unidade_deleted(unidade_id)
         
         return sucesso
     
@@ -693,12 +693,15 @@ class DatabaseDataManager:
     
     def delete_brinde(self, brinde_id: int) -> bool:
         """Exclui um brinde"""
+        # Buscar dados do brinde ANTES de excluí-lo para auditoria
+        brinde_data = self.get_brinde_by_id(brinde_id)
+        
         sucesso = brinde_model.delete(brinde_id)
         if sucesso:
             self.clear_cache()
             
-            # Auditoria
-            audit_logger.audit_brinde_deleted(brinde_id, None)
+            # Auditoria com os dados do brinde
+            audit_logger.audit_brinde_deleted(brinde_id, brinde_data)
         
         return sucesso
     

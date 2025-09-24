@@ -8,13 +8,15 @@ from ..screens.brindes import BrindesScreen
 from ..screens.movimentacoes import MovimentacoesScreen
 from ..screens.relatorios import RelatoriosScreen
 from ..screens.configuracoes import ConfiguracoesScreen
+from ...utils.user_manager import UserManager
 
 class ContentArea:
     """Classe da área de conteúdo principal"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, current_user):
         """Inicializa a área de conteúdo"""
         self.parent = parent
+        self.current_user = current_user
         self.current_screen = None
         
         # Criar frame principal
@@ -28,9 +30,12 @@ class ContentArea:
     
     def setup_screens(self):
         """Configura todas as telas da aplicação"""
+        # Criar instância do user_manager
+        user_manager = UserManager()
+        
         # Criar instâncias das telas (inicialmente ocultas)
         self.screens['dashboard'] = DashboardScreen(self.frame)
-        self.screens['brindes'] = BrindesScreen(self.frame)
+        self.screens['brindes'] = BrindesScreen(self.frame, user_manager)
         self.screens['movimentacoes'] = MovimentacoesScreen(self.frame)
         self.screens['relatorios'] = RelatoriosScreen(self.frame)
         self.screens['configuracoes'] = ConfiguracoesScreen(self.frame)

@@ -11,7 +11,7 @@ black>=23.3.0
 flake8>=6.0.0
 
 # Dependências de banco de dados
-sqlite3>=3.35.0  # Geralmente já vem com o Python
+# sqlite3 já vem com o Python
 
 # Dependências adicionais
 python-dateutil>=2.8.2  # Para manipulação de datas

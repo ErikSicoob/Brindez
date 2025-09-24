@@ -7,9 +7,10 @@ import customtkinter as ctk
 class BaseScreen:
     """Classe base para telas da aplicação"""
     
-    def __init__(self, parent, title="Tela"):
+    def __init__(self, parent, user_manager=None, title="Tela"):
         """Inicializa a tela base"""
         self.parent = parent
+        self.user_manager = user_manager
         self.title = title
         self.is_visible = False
         
