@@ -81,11 +81,20 @@ class DataProvider:
     @cache_manager.cache_result(60)
     def get_brindes(self, filial_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Obtém lista de brindes"""
-        return self._current_provider.get_brindes(filial_filter)
+        try:
+            data = self._current_provider.get_brindes(filial_filter)
+            return data or []
+        except Exception as e:
+            print(f"Erro em get_brindes (DataProvider): {e}")
+            return []
     
     def get_brinde_by_id(self, brinde_id: int) -> Optional[Dict[str, Any]]:
         """Obtém brinde por ID"""
-        return self._current_provider.get_brinde_by_id(brinde_id)
+        try:
+            return self._current_provider.get_brinde_by_id(brinde_id)
+        except Exception as e:
+            print(f"Erro em get_brinde_by_id: {e}")
+            return None
     
     @performance_monitor.measure_time("create_brinde")
     def create_brinde(self, brinde_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -97,10 +106,14 @@ class DataProvider:
     
     def update_brinde(self, brinde_id: int, brinde_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Atualiza brinde"""
+        cache_manager.invalidate_cache("get_brindes")
+        cache_manager.invalidate_cache("get_estatisticas")
         return self._current_provider.update_brinde(brinde_id, brinde_data)
     
     def delete_brinde(self, brinde_id: int) -> bool:
         """Exclui brinde"""
+        cache_manager.invalidate_cache("get_brindes")
+        cache_manager.invalidate_cache("get_estatisticas")
         return self._current_provider.delete_brinde(brinde_id)
     
     def search_brindes(self, query: str, categoria: str = None, filial: str = None) -> List[Dict[str, Any]]:
@@ -110,34 +123,62 @@ class DataProvider:
     # Métodos delegados - Movimentações
     def create_movimentacao(self, movimentacao_data: Dict[str, Any]) -> Dict[str, Any]:
         """Cria movimentação"""
+        # Movimentações alteram o estoque; invalidar caches de listas de brindes/estatísticas
+        cache_manager.invalidate_cache("get_brindes")
+        cache_manager.invalidate_cache("get_estatisticas")
         return self._current_provider.create_movimentacao(movimentacao_data)
     
     def get_movimentacoes(self, brinde_id: int = None, tipo: str = None, limit: int = None) -> List[Dict[str, Any]]:
         """Obtém movimentações"""
-        return self._current_provider.get_movimentacoes(brinde_id, tipo, limit)
+        try:
+            data = self._current_provider.get_movimentacoes(brinde_id, tipo, limit)
+            return data or []
+        except Exception as e:
+            print(f"Erro em get_movimentacoes: {e}")
+            return []
     
     def update_estoque_brinde(self, brinde_id: int, quantidade: int, tipo: str) -> bool:
         """Atualiza estoque"""
+        cache_manager.invalidate_cache("get_brindes")
+        cache_manager.invalidate_cache("get_estatisticas")
         return self._current_provider.update_estoque_brinde(brinde_id, quantidade, tipo)
 
     def find_or_create_brinde_for_transfer(self, brinde_origem: Dict[str, Any], filial_destino: str, username: str) -> Dict[str, Any]:
         """
         Encontra um brinde existente no destino ou cria um novo para a transferência.
         """
-        return self._current_provider.find_or_create_brinde_for_transfer(brinde_origem, filial_destino, username)
+        res = self._current_provider.find_or_create_brinde_for_transfer(brinde_origem, filial_destino, username)
+        cache_manager.invalidate_cache("get_brindes")
+        cache_manager.invalidate_cache("get_estatisticas")
+        return res
 
     # Métodos delegados - Auxiliares
     def get_categorias(self) -> List[str]:
         """Obtém categorias"""
-        return self._current_provider.get_categorias()
+        try:
+            data = self._current_provider.get_categorias()
+            return data or []
+        except Exception as e:
+            print(f"Erro em get_categorias: {e}")
+            return []
     
     def get_unidades_medida(self) -> List[str]:
         """Obtém unidades de medida"""
-        return self._current_provider.get_unidades_medida()
+        try:
+            data = self._current_provider.get_unidades_medida()
+            return data or []
+        except Exception as e:
+            print(f"Erro em get_unidades_medida: {e}")
+            return []
 
     def get_filiais(self) -> List[Dict[str, Any]]:
         """Obtém filiais"""
-        return self._current_provider.get_filiais()
+        try:
+            data = self._current_provider.get_filiais()
+            return data or []
+        except Exception as e:
+            print(f"Erro em get_filiais: {e}")
+            return []
     
     def get_next_id(self, table: str) -> int:
         """Obtém próximo ID"""
@@ -155,34 +196,50 @@ class DataProvider:
     def get_categorias_completas(self) -> List[Dict[str, Any]]:
         """Obtém dados completos das categorias"""
         if self._use_database:
-            return self._current_provider.get_categorias_completas()
+            try:
+                return self._current_provider.get_categorias_completas() or []
+            except Exception as e:
+                print(f"Erro em get_categorias_completas: {e}")
+                return []
         else:
             # Para mock, retornar lista simples como dicionários
-            categorias = self._current_provider.get_categorias()
+            categorias = self._current_provider.get_categorias() or []
             return [{'nome': cat, 'descricao': '', 'id': i+1} for i, cat in enumerate(categorias)]
     
     def get_unidades_medida_completas(self) -> List[Dict[str, Any]]:
         """Obtém dados completos das unidades de medida"""
         if self._use_database:
-            return self._current_provider.get_unidades_medida_completas()
+            try:
+                return self._current_provider.get_unidades_medida_completas() or []
+            except Exception as e:
+                print(f"Erro em get_unidades_medida_completas: {e}")
+                return []
         else:
             # Para mock, retornar lista simples como dicionários
-            unidades = self._current_provider.get_unidades_medida()
+            unidades = self._current_provider.get_unidades_medida() or []
             return [{'codigo': un, 'descricao': f'Descrição {un}', 'id': i+1} for i, un in enumerate(unidades)]
     
     def get_filiais_completas(self) -> List[Dict[str, Any]]:
         """Obtém dados completos das filiais"""
         if self._use_database:
-            return self._current_provider.get_filiais_completas()
+            try:
+                return self._current_provider.get_filiais_completas() or []
+            except Exception as e:
+                print(f"Erro em get_filiais_completas: {e}")
+                return []
         else:
-            return self._current_provider.data.get('filiais', [])
+            return self._current_provider.data.get('filiais', []) or []
     
     def get_usuarios_completos(self) -> List[Dict[str, Any]]:
         """Obtém dados completos dos usuários"""
         if self._use_database:
-            return self._current_provider.get_usuarios_completos()
+            try:
+                return self._current_provider.get_usuarios_completos() or []
+            except Exception as e:
+                print(f"Erro em get_usuarios_completos: {e}")
+                return []
         else:
-            return self._current_provider.data.get('usuarios', [])
+            return self._current_provider.data.get('usuarios', []) or []
     
     def get_usuario_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         """Obtém usuário por username"""
@@ -426,6 +483,34 @@ class DataProvider:
                     self._current_provider.save_data()
                     return self._current_provider.data['filiais'][i]
             return None
+
+    @performance_monitor.measure_time("delete_filial")
+    def delete_filial(self, filial_id: int) -> bool:
+        """Exclui filial. Invalida caches e deixa a lógica de integridade referencial ao provider (DB/Mock)."""
+        cache_manager.invalidate_cache("get_filiais")
+        cache_manager.invalidate_cache("get_brindes")
+        cache_manager.invalidate_cache("get_estatisticas")
+        if self._use_database:
+            return getattr(self._current_provider, 'delete_filial', lambda _id: False)(filial_id)
+        else:
+            # Para mock, remover filial e os brindes associados a ela
+            filiais = self._current_provider.data.get('filiais', [])
+            removed_filial = None
+            for i, f in enumerate(filiais):
+                if f.get('id') == filial_id:
+                    removed_filial = f
+                    del filiais[i]
+                    break
+            # Remover brindes da filial (por id ou por nome quando não houver chave filial_id)
+            brindes = self._current_provider.data.get('brindes', [])
+            if removed_filial is not None:
+                removed_nome = removed_filial.get('nome')
+                self._current_provider.data['brindes'] = [
+                    b for b in brindes
+                    if b.get('filial_id') not in (None, filial_id) and b.get('filial') != removed_nome
+                ]
+            self._current_provider.save_data()
+            return True
     
     # Métodos de backup e manutenção
     def backup_data(self, backup_path: str = None) -> str:

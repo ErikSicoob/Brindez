@@ -123,18 +123,46 @@ class DatabaseDataManager:
     # Métodos para Brindes
     def get_brindes(self, filial_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retorna lista de brindes"""
-        filial_id = None
-        if filial_filter and filial_filter != "Todas":
-            filial = self.get_filial_by_nome(filial_filter)
-            if filial:
-                filial_id = filial['id']
-        
-        brindes_db = brinde_model.get_all(filial_id=filial_id, ativo_apenas=True)
-        
-        # Converter para formato compatível com mock_data
-        brindes = []
-        for brinde in brindes_db:
-            brindes.append({
+        try:
+            filial_id = None
+            if filial_filter and filial_filter != "Todas":
+                filial = self.get_filial_by_nome(filial_filter)
+                if filial:
+                    filial_id = filial['id']
+            
+            brindes_db = brinde_model.get_all(filial_id=filial_id, ativo_apenas=True)
+            
+            # Converter para formato compatível com mock_data
+            brindes = []
+            for brinde in brindes_db:
+                brindes.append({
+                    'id': brinde['id'],
+                    'codigo': brinde['codigo'],
+                    'descricao': brinde['descricao'],
+                    'categoria': brinde['categoria_nome'],
+                    'quantidade': brinde['quantidade'],
+                    'valor_unitario': float(brinde['valor_unitario']),
+                    'unidade_medida': brinde['unidade_codigo'],
+                    'filial': brinde['filial_nome'],
+                    'observacoes': brinde.get('observacoes', ''),
+                    'data_cadastro': brinde['data_criacao'],
+                    'data_atualizacao': brinde.get('data_atualizacao')
+                })
+            
+            return brindes or []  # Garante que sempre retorne uma lista, mesmo que vazia
+            
+        except Exception as e:
+            print(f"Erro ao buscar brindes: {e}")
+            return []  # Retorna lista vazia em caso de erro
+            
+    def get_brinde_by_id(self, brinde_id: int) -> Optional[Dict[str, Any]]:
+        """Retorna um brinde pelo ID"""
+        try:
+            brinde = brinde_model.get_by_id(brinde_id)
+            if not brinde:
+                return None
+                
+            return {
                 'id': brinde['id'],
                 'codigo': brinde['codigo'],
                 'descricao': brinde['descricao'],
@@ -146,28 +174,11 @@ class DatabaseDataManager:
                 'observacoes': brinde.get('observacoes', ''),
                 'data_cadastro': brinde['data_criacao'],
                 'data_atualizacao': brinde.get('data_atualizacao')
-            })
-        
-        return brindes
-    
-    def get_brinde_by_id(self, brinde_id: int) -> Optional[Dict[str, Any]]:
-        """Retorna brinde por ID"""
-        brinde_db = brinde_model.get_by_id(brinde_id)
-        if not brinde_db:
+            }
+            
+        except Exception as e:
+            print(f"Erro ao buscar brinde {brinde_id}: {e}")
             return None
-        
-        return {
-            'id': brinde_db['id'],
-            'codigo': brinde_db['codigo'],
-            'descricao': brinde_db['descricao'],
-            'categoria': brinde_db['categoria_nome'],
-            'quantidade': brinde_db['quantidade'],
-            'valor_unitario': float(brinde_db['valor_unitario']),
-            'unidade_medida': brinde_db['unidade_codigo'],
-            'filial': brinde_db['filial_nome'],
-            'observacoes': brinde_db.get('observacoes', ''),
-            'data_cadastro': brinde_db['data_criacao']
-        }
     
     def create_brinde(self, brinde_data: Dict[str, Any]) -> Dict[str, Any]:
         """Cria um novo brinde"""

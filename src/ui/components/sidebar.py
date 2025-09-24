@@ -21,6 +21,7 @@ class Sidebar:
         self.menu_items = [
             {'key': 'dashboard', 'text': '📊 Dashboard', 'icon': '📊'},
             {'key': 'brindes', 'text': '🎁 Brindes', 'icon': '🎁'},
+            {'key': 'estoque_brindes', 'text': '📦 Estoque de Brindes', 'icon': '📦'},
             {'key': 'movimentacoes', 'text': '📦 Movimentações', 'icon': '📦'},
             {'key': 'relatorios', 'text': '📈 Relatórios', 'icon': '📈'},
             {'key': 'configuracoes', 'text': '⚙️ Configurações', 'icon': '⚙️'}

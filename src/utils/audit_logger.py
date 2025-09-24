@@ -163,8 +163,12 @@ class AuditLogger:
         status = "SUCCESS" if success else "FAILED"
         self.audit_action(
             tabela='usuarios',
-            acao=f'LOGIN_{status}',
-            dados_novos={'username': username, 'timestamp': datetime.now().isoformat()},
+            acao='LOGIN',  # Usando uma ação válida conforme a restrição CHECK
+            dados_novos={
+                'username': username, 
+                'status': status,
+                'timestamp': datetime.now().isoformat()
+            },
             ip_address=ip_address
         )
         

@@ -33,7 +33,7 @@ class MovimentacoesScreen(BaseScreen):
         # Frame para filtros
         filters_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         filters_frame.pack(fill="x")
-        filters_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        filters_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
         
         # Filtro por tipo
         type_label = ctk.CTkLabel(filters_frame, text="📋 Tipo:")
@@ -64,6 +64,35 @@ class MovimentacoesScreen(BaseScreen):
             values=["Todos", "Admin", "João Silva", "Maria Santos", "Pedro Costa"]
         )
         self.user_combo.grid(row=1, column=2, padx=10, pady=(0, 10), sticky="ew")
+
+        # Filtro por filial
+        filial_label = ctk.CTkLabel(filters_frame, text="🏢 Filial:")
+        filial_label.grid(row=0, column=3, padx=10, pady=10, sticky="w")
+
+        try:
+            filiais = data_provider.get_filiais() or []
+            filial_values = ["Todas"] + [f.get('nome', 'N/A') for f in filiais]
+        except Exception:
+            filial_values = ["Todas"]
+        self.filial_combo = ctk.CTkComboBox(
+            filters_frame,
+            values=filial_values
+        )
+        self.filial_combo.grid(row=1, column=3, padx=10, pady=(0, 10), sticky="ew")
+
+        # Restringir seleção de filial para usuários não-Admin e não-Matriz
+        try:
+            user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
+            if user and getattr(self.user_manager, 'is_admin', lambda: False)() is False and user.get('filial') != 'Matriz':
+                user_filial = user.get('filial')
+                self.filial_combo.configure(values=[user_filial])
+                self.filial_combo.set(user_filial)
+                self.filial_combo.configure(state="disabled")
+            else:
+                # Padrão para Matriz/Admin
+                self.filial_combo.set("Todas")
+        except Exception:
+            pass
         
         # Botão filtrar
         filter_button = ctk.CTkButton(
@@ -92,8 +121,22 @@ class MovimentacoesScreen(BaseScreen):
             label = ctk.CTkLabel(header_frame, text=header, font=ctk.CTkFont(weight="bold"))
             label.grid(row=0, column=i, padx=5, pady=10, sticky="ew")
         
-        # Obter movimentações reais
-        movimentacoes = data_provider.get_movimentacoes(limit=50)
+        # Obter movimentações reais e aplicar filtro de filial
+        movimentacoes = data_provider.get_movimentacoes(limit=50) or []
+        try:
+            selected_filial = self.filial_combo.get() if hasattr(self, 'filial_combo') else "Todas"
+        except Exception:
+            selected_filial = "Todas"
+        # Forçar restrição por perfil
+        try:
+            user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
+            if user and getattr(self.user_manager, 'is_admin', lambda: False)() is False and user.get('filial') != 'Matriz':
+                selected_filial = user.get('filial')
+        except Exception:
+            pass
+
+        if selected_filial and selected_filial != "Todas":
+            movimentacoes = [m for m in movimentacoes if m.get('filial') == selected_filial]
         
         # Linhas da tabela
         for i, mov in enumerate(movimentacoes):
@@ -114,8 +157,13 @@ class MovimentacoesScreen(BaseScreen):
             quantidade = mov.get('quantidade', 0)
             qty_str = f"+{quantidade}" if tipo == "Entrada" else f"-{quantidade}"
             user = mov.get('usuario', 'N/A')
-            justificativa = mov.get('justificativa', mov.get('observacoes', 'N/A'))
-            detalhes = mov.get('destino', mov.get('observacoes', 'N/A'))
+            # Coagir campos potencialmente None para strings seguras
+            justificativa_raw = mov.get('justificativa')
+            observacoes_raw = mov.get('observacoes')
+            destino_raw = mov.get('destino')
+
+            justificativa = str(justificativa_raw if justificativa_raw not in (None, '') else (observacoes_raw if observacoes_raw not in (None, '') else 'N/A'))
+            detalhes = str(destino_raw if destino_raw not in (None, '') else (observacoes_raw if observacoes_raw not in (None, '') else 'N/A'))
             
             data = data_formatada
             just = justificativa[:50] + "..." if len(justificativa) > 50 else justificativa

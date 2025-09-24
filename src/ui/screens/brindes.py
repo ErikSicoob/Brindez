@@ -221,6 +221,38 @@ class BrindesScreen(BaseScreen):
             if filial and filial != "Todas":
                 self.filtered_brindes = [b for b in self.filtered_brindes if b.get('filial') == filial]
             
+            # Consolidar por item pai (descrição): somar quantidades e manter um código representativo
+            from collections import defaultdict
+            totals_by_desc = defaultdict(int)
+            first_by_desc = {}
+            for b in self.filtered_brindes:
+                desc_key = str(b.get('descricao', '')).strip().lower()
+                if not desc_key:
+                    continue
+                try:
+                    totals_by_desc[desc_key] += int(b.get('quantidade', 0) or 0)
+                except Exception:
+                    pass
+                if desc_key not in first_by_desc:
+                    first_by_desc[desc_key] = b
+
+            display_list = []
+            self._aggregated_code_map = {}
+            for desc_key, total_qty in totals_by_desc.items():
+                rep = first_by_desc[desc_key]
+                display_list.append({
+                    'id': rep.get('id'),
+                    'codigo': rep.get('codigo'),
+                    'descricao': rep.get('descricao'),
+                    'categoria': rep.get('categoria'),
+                    'valor_unitario': rep.get('valor_unitario', 0),
+                    'quantidade': total_qty,
+                    'filial': '—',
+                })
+                self._aggregated_code_map[desc_key] = rep.get('codigo')
+
+            self.filtered_brindes = display_list
+
             # Resetar para primeira página
             self.current_page = 1
             
@@ -377,12 +409,22 @@ class BrindesScreen(BaseScreen):
             )
             label.grid(row=0, column=col, padx=5, pady=3, sticky="nsew")
             
-            # Adicionar eventos de clique
-            label.bind("<Button-1>", lambda e, c=codigo: self.edit_brinde(c))  # Clique esquerdo para editar
-            label.bind("<Button-3>", lambda e, c=codigo: self.show_context_menu_at_cursor(e, c))  # Clique direito para menu
+            # Adicionar eventos de clique usando o código representativo do item pai
+            try:
+                desc_key = str(desc).strip().lower()
+                rep_codigo = self._aggregated_code_map.get(desc_key, codigo)
+            except Exception:
+                rep_codigo = codigo
+            label.bind("<Button-1>", lambda e, c=rep_codigo: self.edit_brinde(c))  # Clique esquerdo para editar
+            label.bind("<Button-3>", lambda e, c=rep_codigo: self.show_context_menu_at_cursor(e, c))  # Clique direito para menu
         
-        # Adicionar evento de clique direito no frame da linha também
-        row_frame.bind("<Button-3>", lambda e, c=codigo: self.show_context_menu_at_cursor(e, c))
+        # Adicionar evento de clique direito no frame da linha também usando código representativo
+        try:
+            desc_key_frame = str(desc).strip().lower()
+            rep_codigo_frame = self._aggregated_code_map.get(desc_key_frame, codigo)
+        except Exception:
+            rep_codigo_frame = codigo
+        row_frame.bind("<Button-3>", lambda e, c=rep_codigo_frame: self.show_context_menu_at_cursor(e, c))
         
         # Destacar linhas com estoque baixo
         if int(qty) <= 10:
@@ -639,7 +681,7 @@ class BrindesScreen(BaseScreen):
             fields,
             on_submit=self.save_new_brinde
         )
-        dialog.show()
+        dialog.show({'filial': user_filial or brinde.get('filial')})
     
     def save_new_brinde(self, data):
         """Salva um novo brinde"""
@@ -958,6 +1000,20 @@ class BrindesScreen(BaseScreen):
             messagebox.showerror("Erro", "Brinde não encontrado")
             return
         
+        # Definir filiais acessíveis de acordo com o perfil
+        user = self.user_manager.get_current_user() if self.user_manager else None
+        user_filial = user.get('filial') if user else brinde.get('filial')
+        try:
+            todas_filiais = [f['nome'] for f in data_provider.get_filiais()]
+        except Exception:
+            todas_filiais = [brinde.get('filial')]
+        accessible_filiais = todas_filiais
+        try:
+            if self.user_manager and not self.user_manager.is_admin() and user_filial:
+                accessible_filiais = [user_filial]
+        except Exception:
+            pass
+
         fields = [
             {
                 'key': 'quantidade',
@@ -975,6 +1031,13 @@ class BrindesScreen(BaseScreen):
                 'placeholder': f"{brinde.get('valor_unitario', 0):.2f}".replace('.', ',')
             },
             {
+                'key': 'filial',
+                'label': 'Filial',
+                'type': 'combobox',
+                'required': True,
+                'options': accessible_filiais
+            },
+            {
                 'key': 'observacoes',
                 'label': 'Observações',
                 'type': 'textarea',
@@ -990,8 +1053,11 @@ class BrindesScreen(BaseScreen):
             on_submit=lambda data: self.save_entry_brinde(brinde, data)
         )
         
-        # Pré-preencher valor unitário atual
-        dialog.show({'valor_unitario': f"{brinde.get('valor_unitario', 0):.2f}".replace('.', ',')})
+        # Pré-preencher valor unitário atual e filial padrão
+        dialog.show({
+            'valor_unitario': f"{brinde.get('valor_unitario', 0):.2f}".replace('.', ','),
+            'filial': user_filial or brinde.get('filial')
+        })
     
     def save_entry_brinde(self, brinde, data):
         """Salva entrada de estoque"""
@@ -999,28 +1065,54 @@ class BrindesScreen(BaseScreen):
             # Validar dados de entrada
             validated_data = MovimentacaoValidator.validate_entrada_data(data)
             
+            # Selecionar filial alvo respeitando permissão do usuário
+            user = self.user_manager.get_current_user() if self.user_manager else None
+            selected_filial = (data.get('filial') or brinde.get('filial'))
+            if self.user_manager and not self.user_manager.is_admin() and user:
+                selected_filial = user.get('filial', selected_filial)
+
+            # Encontrar ou criar o brinde na filial selecionada
+            target_brinde = brinde
+            if selected_filial and selected_filial != brinde.get('filial'):
+                try:
+                    candidatos = data_provider.get_brindes(filial_filter=selected_filial)
+                    target_brinde = next((b for b in candidatos if str(b.get('descricao','')).strip().lower() == str(brinde.get('descricao','')).strip().lower()), None)
+                except Exception:
+                    target_brinde = None
+                if not target_brinde:
+                    novo_brinde_data = {
+                        'descricao': brinde['descricao'],
+                        'categoria': brinde['categoria'],
+                        'quantidade': 0,
+                        'valor_unitario': brinde.get('valor_unitario', 0),
+                        'unidade_medida': brinde['unidade_medida'],
+                        'filial': selected_filial,
+                        'usuario_cadastro': user.get('username', 'admin') if user else 'admin'
+                    }
+                    target_brinde = data_provider.create_brinde(novo_brinde_data)
+
             # Preparar dados da movimentação
             user = self.user_manager.get_current_user()
             
             movimentacao_data = {
-                'brinde_id': brinde['id'],
-                'brinde_codigo': brinde['codigo'],
-                'brinde_descricao': brinde['descricao'],
+                'brinde_id': target_brinde['id'],
+                'brinde_codigo': target_brinde.get('codigo', brinde.get('codigo')),
+                'brinde_descricao': target_brinde.get('descricao', brinde.get('descricao')),
                 'tipo': 'entrada',
                 'quantidade': validated_data['quantidade'],
                 'usuario': user.get('username', 'admin') if user else 'admin',
                 'observacoes': validated_data.get('observacoes', ''),
-                'filial': brinde.get('filial', 'Matriz')
+                'filial': selected_filial or target_brinde.get('filial', 'Matriz')
             }
             
             # Atualizar valor unitário se fornecido
             if validated_data.get('valor_unitario'):
                 novo_valor = validated_data['valor_unitario']
-                if novo_valor != brinde.get('valor_unitario', 0):
-                    movimentacao_data['valor_unitario_anterior'] = brinde.get('valor_unitario', 0)
+                if novo_valor != target_brinde.get('valor_unitario', 0):
+                    movimentacao_data['valor_unitario_anterior'] = target_brinde.get('valor_unitario', 0)
                     movimentacao_data['valor_unitario_novo'] = novo_valor
                     # Atualizar valor no brinde
-                    data_provider.update_brinde(brinde['id'], {**brinde, 'valor_unitario': novo_valor})
+                    data_provider.update_brinde(target_brinde['id'], {**target_brinde, 'valor_unitario': novo_valor})
             
             # Criar movimentação
             movimentacao = data_provider.create_movimentacao(movimentacao_data)
@@ -1028,7 +1120,7 @@ class BrindesScreen(BaseScreen):
             if movimentacao:
                 # Atualização imediata
                 self.refresh_brindes_list()
-                messagebox.showinfo("Sucesso", f"Entrada registrada: +{validated_data['quantidade']} {brinde['descricao']}")
+                messagebox.showinfo("Sucesso", f"Entrada registrada: +{validated_data['quantidade']} {movimentacao_data['brinde_descricao']} na filial {movimentacao_data['filial']}")
                 return True
             
         except (ValidationError, BusinessRuleError) as e:
@@ -1056,6 +1148,20 @@ class BrindesScreen(BaseScreen):
             messagebox.showerror("Erro", "Não há estoque disponível para este item")
             return
         
+        # Definir filiais acessíveis de acordo com o perfil
+        user = self.user_manager.get_current_user() if self.user_manager else None
+        user_filial = user.get('filial') if user else brinde.get('filial')
+        try:
+            todas_filiais = [f['nome'] for f in data_provider.get_filiais()]
+        except Exception:
+            todas_filiais = [brinde.get('filial')]
+        accessible_filiais = todas_filiais
+        try:
+            if self.user_manager and not self.user_manager.is_admin() and user_filial:
+                accessible_filiais = [user_filial]
+        except Exception:
+            pass
+
         fields = [
             {
                 'key': 'quantidade',
@@ -1078,6 +1184,13 @@ class BrindesScreen(BaseScreen):
                 'type': 'entry',
                 'required': False,
                 'placeholder': 'Para onde vai o item'
+            },
+            {
+                'key': 'filial',
+                'label': 'Filial',
+                'type': 'combobox',
+                'required': True,
+                'options': accessible_filiais
             }
         ]
         
@@ -1087,29 +1200,46 @@ class BrindesScreen(BaseScreen):
             fields,
             on_submit=lambda data: self.save_exit_brinde(brinde, data)
         )
-        dialog.show()
+        dialog.show({'filial': user_filial or brinde.get('filial')})
     
     def save_exit_brinde(self, brinde, data):
         """Salva saída de estoque"""
         try:
-            # Validar dados de saída
+            # Determinar filial alvo respeitando permissão
+            user = self.user_manager.get_current_user() if self.user_manager else None
+            selected_filial = (data.get('filial') or brinde.get('filial'))
+            if self.user_manager and not self.user_manager.is_admin() and user:
+                selected_filial = user.get('filial', selected_filial)
+
+            # Encontrar o brinde correto na filial alvo
+            target_brinde = brinde
+            if selected_filial and selected_filial != brinde.get('filial'):
+                try:
+                    candidatos = data_provider.get_brindes(filial_filter=selected_filial)
+                    target_brinde = next((b for b in candidatos if str(b.get('descricao','')).strip().lower() == str(brinde.get('descricao','')).strip().lower()), None)
+                except Exception:
+                    target_brinde = None
+            if not target_brinde:
+                raise BusinessRuleError("Item não existe na filial selecionada.")
+
+            # Validar dados de saída com estoque da filial alvo
             validated_data = MovimentacaoValidator.validate_saida_data(
-                data, brinde.get('quantidade', 0)
+                data, target_brinde.get('quantidade', 0)
             )
             
             # Preparar dados da movimentação
             user = self.user_manager.get_current_user()
             
             movimentacao_data = {
-                'brinde_id': brinde['id'],
-                'brinde_codigo': brinde['codigo'],
-                'brinde_descricao': brinde['descricao'],
+                'brinde_id': target_brinde['id'],
+                'brinde_codigo': target_brinde.get('codigo', brinde.get('codigo')),
+                'brinde_descricao': target_brinde.get('descricao', brinde.get('descricao')),
                 'tipo': 'saida',
                 'quantidade': validated_data['quantidade'],
                 'usuario': user.get('username', 'admin') if user else 'admin',
                 'justificativa': validated_data['justificativa'],
                 'destino': validated_data.get('destino', ''),
-                'filial': brinde.get('filial', 'Matriz')
+                'filial': selected_filial or target_brinde.get('filial', 'Matriz')
             }
             
             # Criar movimentação
@@ -1118,11 +1248,11 @@ class BrindesScreen(BaseScreen):
             # Atualizar listagem
             self.refresh_brindes_list()
             
-            novo_estoque = brinde['quantidade'] - validated_data['quantidade']
+            novo_estoque = target_brinde['quantidade'] - validated_data['quantidade']
             messagebox.showinfo(
                 "Sucesso", 
                 f"Saída registrada com sucesso!\n\n"
-                f"Item: {brinde['descricao']}\n"
+                f"Item: {target_brinde['descricao']} (Filial {movimentacao_data['filial']})\n"
                 f"Quantidade: -{validated_data['quantidade']}\n"
                 f"Novo estoque: {novo_estoque}"
             )

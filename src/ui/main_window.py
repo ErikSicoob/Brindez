@@ -48,6 +48,7 @@ class MainWindow:
         menu_mapping = {
             'dashboard': self.content_area.show_dashboard,
             'brindes': self.content_area.show_brindes,
+            'estoque_brindes': self.content_area.show_estoque_brindes,
             'movimentacoes': self.content_area.show_movimentacoes,
             'relatorios': self.content_area.show_relatorios,
             'configuracoes': self.content_area.show_configuracoes
