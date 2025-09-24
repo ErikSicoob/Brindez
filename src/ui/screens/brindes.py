@@ -161,16 +161,44 @@ class BrindesScreen(BaseScreen):
         )
         self.category_combo.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
         
-        # Filtro por filial
+        # Filtro por filial (dinâmico)
         filial_label = ctk.CTkLabel(filters_frame, text="🏢 Filial:")
         filial_label.grid(row=0, column=2, padx=10, pady=10, sticky="w")
         
+        try:
+            filiais_list = data_provider.get_filiais() or []
+        except Exception:
+            filiais_list = []
+        filiais_nomes = ["Todas"] + [f.get('nome', 'N/A') for f in filiais_list]
         self.filial_combo = ctk.CTkComboBox(
             filters_frame,
-            values=["Todas", "Matriz", "Filial SP", "Filial RJ", "Filial BH"],
+            values=filiais_nomes,
             command=self.on_filter_change
         )
         self.filial_combo.grid(row=1, column=2, padx=10, pady=(0, 10), sticky="ew")
+        
+        # Restringir seleção para não-Admin e não-globais (filial número '00')
+        try:
+            user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
+            if user and not self.user_manager.is_admin():
+                user_filial = user.get('filial')
+                # Verificar se a filial do usuário é global (numero '00')
+                is_global = False
+                try:
+                    fil = next((f for f in filiais_list if f.get('nome') == user_filial), None)
+                    if fil and str(fil.get('numero')).zfill(2) == '00':
+                        is_global = True
+                except Exception:
+                    is_global = (user_filial == 'Matriz')
+                if not is_global:
+                    self.filial_combo.configure(values=[user_filial])
+                    self.filial_combo.set(user_filial)
+                    self.filial_combo.configure(state="disabled")
+                else:
+                    if "Todas" in self.filial_combo.cget('values'):
+                        self.filial_combo.set("Todas")
+        except Exception:
+            pass
         
         # Tabela de brindes
         self.create_brindes_table(content_frame)
@@ -1004,13 +1032,22 @@ class BrindesScreen(BaseScreen):
         user = self.user_manager.get_current_user() if self.user_manager else None
         user_filial = user.get('filial') if user else brinde.get('filial')
         try:
-            todas_filiais = [f['nome'] for f in data_provider.get_filiais()]
+            todas_filiais = data_provider.get_filiais() or []
         except Exception:
-            todas_filiais = [brinde.get('filial')]
-        accessible_filiais = todas_filiais
+            todas_filiais = []
+        accessible_filiais = [f.get('nome') for f in todas_filiais] or [brinde.get('filial')]
         try:
             if self.user_manager and not self.user_manager.is_admin() and user_filial:
-                accessible_filiais = [user_filial]
+                # Checar se usuário é global (numero '00')
+                is_global = False
+                try:
+                    fil = next((f for f in todas_filiais if f.get('nome') == user_filial), None)
+                    if fil and str(fil.get('numero')).zfill(2) == '00':
+                        is_global = True
+                except Exception:
+                    is_global = (user_filial == 'Matriz')
+                if not is_global:
+                    accessible_filiais = [user_filial]
         except Exception:
             pass
 

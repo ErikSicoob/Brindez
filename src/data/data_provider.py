@@ -505,9 +505,10 @@ class DataProvider:
             brindes = self._current_provider.data.get('brindes', [])
             if removed_filial is not None:
                 removed_nome = removed_filial.get('nome')
+                # Manter apenas brindes que NÃO pertencem à filial removida
                 self._current_provider.data['brindes'] = [
                     b for b in brindes
-                    if b.get('filial_id') not in (None, filial_id) and b.get('filial') != removed_nome
+                    if not ((b.get('filial_id') == filial_id) or (b.get('filial') == removed_nome))
                 ]
             self._current_provider.save_data()
             return True

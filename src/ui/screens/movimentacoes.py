@@ -80,17 +80,27 @@ class MovimentacoesScreen(BaseScreen):
         )
         self.filial_combo.grid(row=1, column=3, padx=10, pady=(0, 10), sticky="ew")
 
-        # Restringir seleção de filial para usuários não-Admin e não-Matriz
+        # Restringir seleção de filial para usuários não-Admin e não-globais ('00')
         try:
             user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
-            if user and getattr(self.user_manager, 'is_admin', lambda: False)() is False and user.get('filial') != 'Matriz':
+            if user and getattr(self.user_manager, 'is_admin', lambda: False)() is False:
                 user_filial = user.get('filial')
-                self.filial_combo.configure(values=[user_filial])
-                self.filial_combo.set(user_filial)
-                self.filial_combo.configure(state="disabled")
-            else:
-                # Padrão para Matriz/Admin
-                self.filial_combo.set("Todas")
+                # Verificar se a filial do usuário é global (numero '00')
+                is_global = False
+                try:
+                    filiais_all = data_provider.get_filiais() or []
+                    fil = next((f for f in filiais_all if f.get('nome') == user_filial), None)
+                    if fil and str(fil.get('numero')).zfill(2) == '00':
+                        is_global = True
+                except Exception:
+                    is_global = (user_filial == 'Matriz')
+                if not is_global:
+                    self.filial_combo.configure(values=[user_filial])
+                    self.filial_combo.set(user_filial)
+                    self.filial_combo.configure(state="disabled")
+                else:
+                    # Padrão para global/Admin
+                    self.filial_combo.set("Todas")
         except Exception:
             pass
         
@@ -127,11 +137,21 @@ class MovimentacoesScreen(BaseScreen):
             selected_filial = self.filial_combo.get() if hasattr(self, 'filial_combo') else "Todas"
         except Exception:
             selected_filial = "Todas"
-        # Forçar restrição por perfil
+        # Forçar restrição por perfil (considerando filial global '00')
         try:
             user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
-            if user and getattr(self.user_manager, 'is_admin', lambda: False)() is False and user.get('filial') != 'Matriz':
-                selected_filial = user.get('filial')
+            if user and getattr(self.user_manager, 'is_admin', lambda: False)() is False:
+                user_filial = user.get('filial')
+                is_global = False
+                try:
+                    filiais_all = data_provider.get_filiais() or []
+                    fil = next((f for f in filiais_all if f.get('nome') == user_filial), None)
+                    if fil and str(fil.get('numero')).zfill(2) == '00':
+                        is_global = True
+                except Exception:
+                    is_global = (user_filial == 'Matriz')
+                if not is_global:
+                    selected_filial = user_filial
         except Exception:
             pass
 
