@@ -260,6 +260,24 @@ class DatabaseDataManager:
             return brinde_atualizado
         
         return None
+
+    def delete_brinde(self, brinde_id: int) -> bool:
+        """Exclui (inativa) um brinde"""
+        # Buscar dados do brinde antes de excluir para auditoria
+        brinde_data = self.get_brinde_by_id(brinde_id)
+        if not brinde_data:
+            return False
+        
+        sucesso = brinde_model.delete(brinde_id)
+        if sucesso:
+            self.clear_cache()
+            # Auditoria
+            try:
+                audit_logger.audit_brinde_deleted(brinde_id, brinde_data)
+            except Exception:
+                pass
+            return True
+        return False
     
     def update_estoque_brinde(self, brinde_id: int, quantidade: int, tipo: str) -> bool:
         """Atualiza estoque de um brinde"""
@@ -667,7 +685,6 @@ class DatabaseDataManager:
             **filial_data
         }
         
-        # Auditoria
         audit_logger.audit_filial_created(filial_criada, data_insert.get('usuario_id'))
         
         return filial_criada
@@ -702,19 +719,35 @@ class DatabaseDataManager:
         
         return None
     
-    def delete_brinde(self, brinde_id: int) -> bool:
-        """Exclui um brinde"""
-        # Buscar dados do brinde ANTES de excluí-lo para auditoria
-        brinde_data = self.get_brinde_by_id(brinde_id)
+    def delete_filial(self, filial_id: int) -> bool:
+        """Exclui (inativa) uma filial e inativa seus brindes associados"""
+        # Buscar dados da filial para auditoria
+        filial = filial_model.get_by_id(filial_id)
+        if not filial:
+            return False
         
-        sucesso = brinde_model.delete(brinde_id)
-        if sucesso:
+        # Inativar todos os brindes da filial
+        try:
+            brinde_model.execute_update(
+                "UPDATE brindes SET ativo = 0, data_atualizacao = CURRENT_TIMESTAMP WHERE filial_id = ?",
+                (filial_id,)
+            )
+        except Exception:
+            # Prosseguir mesmo se não houver brindes
+            pass
+        
+        # Inativar a filial
+        affected = filial_model.execute_update(
+            "UPDATE filiais SET ativo = 0, data_atualizacao = CURRENT_TIMESTAMP WHERE id = ?",
+            (filial_id,)
+        )
+        
+        if affected > 0:
             self.clear_cache()
-            
-            # Auditoria com os dados do brinde
-            audit_logger.audit_brinde_deleted(brinde_id, brinde_data)
+            audit_logger.audit_filial_deleted(filial_id, filial)
+            return True
         
-        return sucesso
+        return False
     
     # Métodos para estatísticas
     def get_estatisticas_dashboard(self) -> Dict[str, Any]:

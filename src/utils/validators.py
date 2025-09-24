@@ -162,6 +162,21 @@ class BrindeValidator:
                     raise ValidationError(f"A filial '{filial}' não é válida. Opções disponíveis: {filiais_str}")
             
             validated_data['filial'] = filial_value
+        elif isinstance(filial_value, dict):
+            # Novo formato: {filial_nome: quantidade}
+            if not filial_value:
+                raise ValidationError("Selecione pelo menos uma filial e informe a quantidade para cada uma.")
+            for filial, qty in filial_value.items():
+                if filial not in filiais:
+                    filiais_str = ", ".join(str(f) for f in filiais)
+                    raise ValidationError(f"A filial '{filial}' não é válida. Opções disponíveis: {filiais_str}")
+                try:
+                    q = int(qty)
+                except Exception:
+                    raise ValidationError(f"Quantidade inválida para a filial '{filial}'. Informe um número inteiro.")
+                if q < 0:
+                    raise ValidationError(f"Quantidade para a filial '{filial}' não pode ser negativa.")
+            validated_data['filial'] = filial_value
         else:
             # Se for um único valor (combobox)
             validated_data['filial'] = Validators.validate_choice(

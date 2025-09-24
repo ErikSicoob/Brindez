@@ -124,9 +124,9 @@ class MovimentacoesScreen(BaseScreen):
         # Cabeçalho da tabela
         header_frame = ctk.CTkFrame(table_frame, fg_color=("gray80", "gray30"))
         header_frame.pack(fill="x", padx=10, pady=(10, 0))
-        header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
+        header_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
         
-        headers = ["Data/Hora", "Tipo", "Item", "Quantidade", "Usuário", "Justificativa", "Detalhes"]
+        headers = ["Data/Hora", "Tipo", "Item", "Quantidade", "Filiais", "Usuário", "Justificativa", "Detalhes"]
         for i, header in enumerate(headers):
             label = ctk.CTkLabel(header_frame, text=header, font=ctk.CTkFont(weight="bold"))
             label.grid(row=0, column=i, padx=5, pady=10, sticky="ew")
@@ -172,10 +172,16 @@ class MovimentacoesScreen(BaseScreen):
                 data_formatada = "N/A"
             
             # Dados da movimentação
-            tipo = mov.get('tipo', '').title()
+            tipo_raw = mov.get('tipo', '')
+            tipo = tipo_raw.replace('_', ' ').title()
             item = mov.get('brinde_descricao', 'N/A')
             quantidade = mov.get('quantidade', 0)
-            qty_str = f"+{quantidade}" if tipo == "Entrada" else f"-{quantidade}"
+            if 'entrada' in tipo_raw:
+                qty_str = f"+{quantidade}"
+            elif 'saida' in tipo_raw:
+                qty_str = f"-{quantidade}"
+            else:
+                qty_str = str(quantidade)
             user = mov.get('usuario', 'N/A')
             # Coagir campos potencialmente None para strings seguras
             justificativa_raw = mov.get('justificativa')
@@ -190,7 +196,7 @@ class MovimentacoesScreen(BaseScreen):
             det = detalhes[:50] + "..." if len(detalhes) > 50 else detalhes
             row_frame = ctk.CTkFrame(table_frame, fg_color="transparent")
             row_frame.pack(fill="x", padx=10, pady=2)
-            row_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
+            row_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
             
             # Cor baseada no tipo
             if "Entrada" in tipo:
@@ -200,10 +206,15 @@ class MovimentacoesScreen(BaseScreen):
             else:  # Transferência
                 color = "blue"
             
+            # Filiais
+            filial_origem = mov.get('filial_origem') or mov.get('filial') or ''
+            filial_destino = mov.get('filial_destino') or ''
+            filiais_txt = f"{filial_origem} -> {filial_destino}" if 'transferencia' in tipo_raw else (filial_origem or '-')
+
             # Células
-            cells = [data, tipo, item, qty_str, user, just, det]
+            cells = [data, tipo, item, qty_str, filiais_txt, user, just, det]
             for j, cell in enumerate(cells):
-                text_color = color if j == 1 or j == 3 else None  # Tipo e Quantidade coloridos
+                text_color = color if j in (1, 3) else None  # Tipo e Quantidade coloridos
                 label = ctk.CTkLabel(
                     row_frame, 
                     text=cell, 

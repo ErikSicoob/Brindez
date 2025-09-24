@@ -141,8 +141,40 @@ class ConfiguracoesScreen(BaseScreen):
         min_label = ctk.CTkLabel(min_stock_frame, text="Quantidade mínima para alerta:")
         min_label.pack(anchor="w", pady=(0, 5))
         
-        min_entry = ctk.CTkEntry(min_stock_frame, placeholder_text="10", width=100)
-        min_entry.pack(anchor="w")
+        # Entrada de quantidade mínima (armazenar em self para acesso posterior)
+        self.min_entry = ctk.CTkEntry(min_stock_frame, placeholder_text="10", width=100)
+        # Preencher com valor atual da configuração, se existir
+        try:
+            atual = data_provider.get_configuracao('estoque_minimo', 10)
+            self.min_entry.insert(0, str(atual))
+        except Exception:
+            pass
+        self.min_entry.pack(anchor="w")
+
+        # Botão salvar configuração de estoque mínimo
+        save_min_btn = ctk.CTkButton(
+            stock_section,
+            text="💾 Salvar",
+            command=self.save_min_stock,
+            width=120
+        )
+        save_min_btn.pack(padx=15, pady=(0, 15), anchor="w")
+
+    def save_min_stock(self):
+        """Salva a configuração de estoque mínimo"""
+        try:
+            valor_txt = (self.min_entry.get() or '').strip()
+            if not valor_txt.isdigit():
+                messagebox.showerror("Erro", "Informe um número inteiro para a quantidade mínima.")
+                return
+            valor = int(valor_txt)
+            ok = data_provider.set_configuracao('estoque_minimo', valor)
+            if ok:
+                messagebox.showinfo("Sucesso", "Configuração salva com sucesso!")
+            else:
+                messagebox.showerror("Erro", "Não foi possível salvar a configuração.")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao salvar configuração: {e}")
     
     def create_categorias_tab(self):
         """Cria a aba de categorias"""

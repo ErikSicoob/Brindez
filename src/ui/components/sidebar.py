@@ -52,7 +52,9 @@ class Sidebar:
                 command=lambda key=item['key']: self.select_menu_item(key),
                 anchor="w",
                 height=40,
-                font=ctk.CTkFont(size=13)
+                font=ctk.CTkFont(size=13),
+                fg_color=("#00AE9D", "#00AE9D"),
+                hover_color=("#008f82", "#008f82")
             )
             button.pack(fill="x", padx=15, pady=5)
             self.menu_buttons[item['key']] = button
@@ -75,13 +77,13 @@ class Sidebar:
     
     def select_menu_item(self, menu_key):
         """Seleciona um item do menu"""
-        # Resetar cor do botão anterior
+        # Resetar cor do botão anterior para cor padrão (não clicado)
         if self.selected_button:
-            self.selected_button.configure(fg_color=("gray75", "gray25"))
+            self.selected_button.configure(fg_color=("#00AE9D", "#00AE9D"))
         
         # Destacar botão atual
         current_button = self.menu_buttons[menu_key]
-        current_button.configure(fg_color=("blue", "blue"))
+        current_button.configure(fg_color=("#003641", "#003641"))
         self.selected_button = current_button
         
         # Chamar callback

@@ -163,7 +163,7 @@ class AuditLogger:
         status = "SUCCESS" if success else "FAILED"
         self.audit_action(
             tabela='usuarios',
-            acao='LOGIN',  # Usando uma ação válida conforme a restrição CHECK
+            acao='INSERT',  # Registrar como INSERT para cumprir o CHECK constraint
             dados_novos={
                 'username': username, 
                 'status': status,
@@ -190,7 +190,7 @@ class AuditLogger:
         """Auditoria de criação de backup"""
         self.audit_action(
             tabela='sistema',
-            acao='BACKUP_CREATED',
+            acao='INSERT',  # Usar INSERT para obedecer ao CHECK constraint
             dados_novos={'backup_path': backup_path, 'timestamp': datetime.now().isoformat()},
             usuario_id=usuario_id
         )
@@ -410,6 +410,18 @@ class AuditLogger:
             usuario_id=usuario_id
         )
         self.log_info(f"Filial atualizada: {filial_data.get('nome')} (ID: {filial_data.get('id')})")
+
+    def audit_filial_deleted(self, filial_id: int, filial_data: Dict[str, Any] = None, usuario_id: int = None):
+        """Auditoria de exclusão (inativação) de filial"""
+        self.audit_action(
+            tabela='filiais',
+            acao='DELETE',
+            registro_id=filial_id,
+            dados_anteriores=filial_data,
+            usuario_id=usuario_id
+        )
+        nome = filial_data.get('nome') if isinstance(filial_data, dict) else ''
+        self.log_info(f"Filial excluída: {nome} (ID: {filial_id})")
 
 # Instância global do logger de auditoria
 audit_logger = AuditLogger()

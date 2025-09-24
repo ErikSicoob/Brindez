@@ -9,7 +9,7 @@ from ...utils.validators import Validators, ValidationError
 class FormDialog:
     """Classe para criar diálogos de formulário inline"""
     
-    def __init__(self, parent, title, fields, on_submit=None, on_cancel=None):
+    def __init__(self, parent, title, fields, on_submit=None, on_cancel=None, show_header: bool = True):
         """
         Inicializa o diálogo de formulário
         
@@ -25,6 +25,7 @@ class FormDialog:
         self.fields = fields
         self.on_submit = on_submit
         self.on_cancel = on_cancel
+        self.show_header = show_header
         
         self.dialog = None
         self.field_widgets = {}
@@ -38,8 +39,16 @@ class FormDialog:
         # Criar janela de diálogo
         self.dialog = ctk.CTkToplevel(self.parent)
         self.dialog.title(self.title)
-        self.dialog.geometry("500x600")
-        self.dialog.resizable(False, False)
+        # Definir tamanho inicial proporcional à tela e permitir redimensionamento
+        try:
+            sw = self.dialog.winfo_screenwidth()
+            sh = self.dialog.winfo_screenheight()
+            w = min(600, int(sw * 0.45))
+            h = min(650, int(sh * 0.65))
+            self.dialog.geometry(f"{w}x{h}")
+        except Exception:
+            self.dialog.geometry("520x560")
+        self.dialog.resizable(True, True)
         
         # Centralizar na tela
         self.dialog.after(100, self.center_dialog)  # Atrasar a centralização
@@ -55,7 +64,8 @@ class FormDialog:
         self.dialog.grid_rowconfigure(2, weight=0)  # Buttons
 
         # Criar interface
-        self.create_header()
+        if self.show_header:
+            self.create_header()
         self.create_form(data)
         self.create_buttons()
 
@@ -83,11 +93,12 @@ class FormDialog:
             text=self.title,
             font=ctk.CTkFont(size=18, weight="bold")
         )
-        title_label.pack(pady=15)
+        title_label.pack(pady=8)
     
     def create_form(self, data=None):
         """Cria o formulário com estrutura simplificada"""
         # Frame scrollável simples para o formulário
+        # Altura da área de formulário ajustável; Scroll garante que botões fiquem visíveis
         self.form_frame = ctk.CTkScrollableFrame(self.dialog, height=400)
         self.form_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
         self.form_frame.grid_columnconfigure(0, weight=1)
@@ -164,6 +175,46 @@ class FormDialog:
             
             widget = checkboxes
             # Para checkbox_group, não chamamos grid() porque já foi posicionado
+        
+        elif field_type == 'checkbox_group_quantities':
+            # Checkboxes com entrada de quantidade por opção
+            widget_frame = ctk.CTkFrame(field_container, fg_color="transparent")
+            widget_frame.grid(row=1, column=0, sticky="ew", pady=2)
+            widget_frame.grid_columnconfigure((0, 1), weight=1)
+
+            option_widgets = {}
+            options = field.get('options', [])
+
+            for i, option in enumerate(options):
+                var = ctk.IntVar()
+                cb = ctk.CTkCheckBox(widget_frame, text=str(option), variable=var)
+                cb.grid(row=i, column=0, padx=5, pady=2, sticky="w")
+
+                qty_entry = ctk.CTkEntry(widget_frame, placeholder_text="0", width=80)
+                qty_entry.grid(row=i, column=1, padx=5, pady=2, sticky="e")
+                qty_entry.configure(state="disabled")
+
+                def make_toggle(entry_ref, var_ref):
+                    def _toggle():
+                        if var_ref.get() == 1:
+                            entry_ref.configure(state="normal")
+                            # Preencher com 0 se vazio
+                            try:
+                                if not entry_ref.get():
+                                    entry_ref.insert(0, "0")
+                            except Exception:
+                                pass
+                        else:
+                            entry_ref.delete(0, "end")
+                            entry_ref.insert(0, "0")
+                            entry_ref.configure(state="disabled")
+                    return _toggle
+
+                cb.configure(command=make_toggle(qty_entry, var))
+
+                option_widgets[str(option)] = (var, qty_entry)
+
+            widget = option_widgets
             
         elif field_type == 'checkbox':
             widget = ctk.CTkCheckBox(field_container, text="")
@@ -211,6 +262,19 @@ class FormDialog:
         elif field_type == 'checkbox_group':
             for key, var in widget.items():
                 var.set(1 if key in value else 0)
+        elif field_type == 'checkbox_group_quantities':
+            # Espera dict {option: quantidade}
+            for key, (var, entry) in widget.items():
+                if isinstance(value, dict) and key in value and value[key] is not None:
+                    var.set(1)
+                    entry.configure(state="normal")
+                    entry.delete(0, "end")
+                    entry.insert(0, str(value[key]))
+                else:
+                    var.set(0)
+                    entry.delete(0, "end")
+                    entry.insert(0, "0")
+                    entry.configure(state="disabled")
         elif field_type == 'checkbox':
             widget.select() if value else widget.deselect()
         elif field_type == 'label':
@@ -234,6 +298,18 @@ class FormDialog:
             return widget.get()
         elif field_type == 'checkbox_group':
             return [key for key, var in widget.items() if var.get() == 1]
+        elif field_type == 'checkbox_group_quantities':
+            # Retornar apenas as opções marcadas com suas quantidades (int)
+            result = {}
+            for key, (var, entry) in widget.items():
+                if var.get() == 1:
+                    txt = (entry.get() or '').strip()
+                    try:
+                        qty = int(txt)
+                    except Exception:
+                        qty = 0
+                    result[key] = qty
+            return result
         elif field_type == 'checkbox':
             return widget.get() == 1
         elif field_type == 'label':
@@ -252,8 +328,8 @@ class FormDialog:
             buttons_frame,
             text="❌ Cancelar",
             command=self.cancel,
-            fg_color=("gray70", "gray30"),
-            hover_color=("gray60", "gray40"),
+            fg_color=("#cc3333", "#cc3333"),
+            hover_color=("#a82828", "#a82828"),
             height=40
         )
         cancel_btn.grid(row=0, column=0, padx=(0, 5), pady=10, sticky="ew")
@@ -263,6 +339,8 @@ class FormDialog:
             buttons_frame,
             text="💾 Salvar",
             command=self.submit,
+            fg_color=("#00AE9D", "#00AE9D"),
+            hover_color=("#008f82", "#008f82"),
             height=40
         )
         save_btn.grid(row=0, column=1, padx=(5, 0), pady=10, sticky="ew")

@@ -691,25 +691,29 @@ class BrindesScreen(BaseScreen):
             {
                 'key': 'filial',
                 'label': 'Filial',
-                'type': 'checkbox_group',
+                'type': 'checkbox_group_quantities',
                 'required': True,
                 'options': [f['nome'] for f in data_provider.get_filiais()]
             },
-            {
-                'key': 'dividir_estoque',
-                'label': 'Dividir em partes iguais',
-                'type': 'checkbox',
-                'required': False
-            }
+            # Removido dividir_estoque: agora a alocação é manual por filial
         ]
         
         dialog = FormDialog(
             self.frame,
             "➕ Novo Brinde",
             fields,
-            on_submit=self.save_new_brinde
+            on_submit=self.save_new_brinde,
+            show_header=False
         )
-        dialog.show({'filial': user_filial or brinde.get('filial')})
+        # Pré-selecionar a filial do usuário (quando não-admin)
+        initial_values = {}
+        try:
+            user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
+            if user and user.get('filial'):
+                initial_values['filial'] = {user.get('filial'): 0}
+        except Exception:
+            pass
+        dialog.show(initial_values)
     
     def save_new_brinde(self, data):
         """Salva um novo brinde"""
@@ -727,30 +731,30 @@ class BrindesScreen(BaseScreen):
             if user:
                 validated_data['usuario_cadastro'] = user.get('username', 'admin')
 
-            filiais_selecionadas = validated_data.pop('filial', [])
-            dividir_estoque = validated_data.pop('dividir_estoque', False)
+            # Nova lógica: alocação manual por filial com quantidades
+            # Campo 'filial' vem como dict {nome_filial: quantidade}
+            alocacoes = validated_data.pop('filial', {}) or {}
             quantidade_total = int(validated_data.get('quantidade', 0))
 
-            if not filiais_selecionadas:
-                raise ValidationError("Pelo menos uma filial deve ser selecionada.")
+            if not isinstance(alocacoes, dict) or not alocacoes:
+                raise ValidationError("Selecione pelo menos uma filial e informe a quantidade para cada uma.")
 
-            if dividir_estoque and len(filiais_selecionadas) > 1:
-                quantidade_por_filial = quantidade_total // len(filiais_selecionadas)
-                resto = quantidade_total % len(filiais_selecionadas)
-            else:
-                quantidade_por_filial = quantidade_total
-                resto = 0
+            soma_alocada = sum(int(v or 0) for v in alocacoes.values())
+            if soma_alocada != quantidade_total:
+                raise ValidationError(
+                    f"A soma das quantidades por filial ({soma_alocada}) deve ser igual à quantidade total digitada ({quantidade_total})."
+                )
 
-            for i, filial in enumerate(filiais_selecionadas):
+            # Criar um registro por filial com a quantidade alocada
+            for filial, qtd in alocacoes.items():
+                qtd_int = int(qtd or 0)
+                if qtd_int < 0:
+                    raise ValidationError("Quantidade por filial não pode ser negativa.")
+                if qtd_int == 0:
+                    continue  # ignorar alocação zero
                 brinde_data = validated_data.copy()
                 brinde_data['filial'] = filial
-                
-                if dividir_estoque and len(filiais_selecionadas) > 1:
-                    brinde_data['quantidade'] = quantidade_por_filial
-                    if i == 0 and resto > 0:
-                        brinde_data['quantidade'] += resto
-                
-                # Criar brinde
+                brinde_data['quantidade'] = qtd_int
                 data_provider.create_brinde(brinde_data)
 
             # Atualização imediata e otimizada
@@ -763,14 +767,7 @@ class BrindesScreen(BaseScreen):
         except BusinessRuleError as e:
             messagebox.showerror("Erro de Regra de Negócio", str(e))
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao cadastrar brinde: {e}")
-    
-    def safe_refresh_table(self):
-        """Método unificado para atualização segura da tabela"""
-        self.refresh_table()
-    
-    def edit_brinde(self, codigo):
-        """Edita um brinde"""
+            messagebox.showerror("Erro", f"Erro ao cadastrar brinde: {e.__class__.__name__}: {e}")
         # Encontrar brinde pelo código de forma segura
         brinde = None
         for b in self.current_brindes:
@@ -1343,25 +1340,29 @@ class BrindesScreen(BaseScreen):
             
             if not brinde_id:
                 messagebox.showerror("Erro", "ID do brinde não encontrado")
-                return
-            
             # Confirmar exclusão
             if messagebox.askyesno("Confirmar Exclusão", f"Excluir '{descricao}'?"):
                 # Excluir do banco
                 if data_provider.delete_brinde(brinde_id):
-                    # Atualização imediata e otimizada
+                    # Remover da lista atual imediatamente (antes do refresh) para UX consistente
+                    try:
+                        self.current_brindes = [b for b in self.current_brindes if b.get('id') != brinde_id]
+                        self.apply_filters()
+                        self.refresh_table()
+                    except Exception:
+                        pass
+                    # Atualização a partir da fonte de dados
                     self.refresh_brindes_list()
                     
                     # Mostrar mensagem de sucesso
                     messagebox.showinfo("Sucesso", f"'{descricao}' excluído com sucesso!")
                 else:
                     messagebox.showerror("Erro", "Falha na exclusão")
-                    
         except Exception as e:
             print(f"ERRO delete_brinde: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Erro", "Erro interno na exclusão")
+            messagebox.showerror("Erro", f"Erro interno na exclusão: {e}")
     
     def force_refresh_interface(self):
         """Força atualização completa da interface"""

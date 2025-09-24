@@ -14,7 +14,9 @@ class DashboardScreen(BaseScreen):
     def __init__(self, parent):
         """Inicializa a tela do dashboard"""
         super().__init__(parent, "Dashboard")
+        self.auto_refresh_ms = 10000  # 10s
         self.setup_ui()
+        self.schedule_auto_refresh()
     
     def setup_ui(self):
         """Configura a interface do dashboard"""
@@ -175,29 +177,25 @@ class DashboardScreen(BaseScreen):
         )
         chart2_title.pack(pady=(15, 10))
         
-        # Movimentações reais recentes
+        # Movimentações reais recentes (texto amigável)
         movimentacoes = data_provider.get_movimentacoes(limit=5)
         movements_data = []
         
         for mov in movimentacoes:
-            tipo = mov.get('tipo', '').replace('_', ' ').title()
-            item = mov.get('brinde_descricao', 'N/A')
+            tipo_raw = (mov.get('tipo', '') or '').lower()
+            mov_type = mov.get('tipo', '').replace('_', ' ').title()
+            item = mov.get('brinde_descricao', 'Item')
             quantidade = mov.get('quantidade', 0)
-            
-            # Formatar quantidade baseada no tipo
-            if 'entrada' in mov.get('tipo', '').lower():
-                qty_str = f"+{quantidade}"
-                mov_type = "Entrada"
-            elif 'saida' in mov.get('tipo', '').lower():
-                qty_str = f"-{quantidade}"
-                mov_type = "Saída"
-            elif 'transferencia' in mov.get('tipo', '').lower():
-                filial_destino = mov.get('filial_destino', mov.get('filial_origem', ''))
-                qty_str = f"{quantidade}→{filial_destino}"
-                mov_type = "Transferência"
+            filial_origem = mov.get('filial_origem') or mov.get('filial') or ''
+            filial_destino = mov.get('filial_destino') or ''
+            if 'entrada' in tipo_raw:
+                texto = f"Entrada: {quantidade}x {item} em {filial_origem or 'filial não informada'}"
+            elif 'saida' in tipo_raw:
+                texto = f"Saída: {quantidade}x {item} de {filial_origem or 'filial não informada'}"
+            elif 'transferencia' in tipo_raw:
+                texto = f"Transferência: {quantidade}x {item} — {filial_origem or '?'} -> {filial_destino or '?'}"
             else:
-                qty_str = str(quantidade)
-                mov_type = tipo
+                texto = f"{mov_type}: {quantidade}x {item}"
             
             # Calcular tempo relativo
             data_hora = mov.get('data_hora', '')
@@ -208,7 +206,12 @@ class DashboardScreen(BaseScreen):
                     diff = now - dt
                     
                     if diff.days == 0:
-                        when = "Hoje"
+                        if diff.seconds < 60:
+                            when = "Agora"
+                        elif diff.seconds < 3600:
+                            when = f"Há {diff.seconds // 60} min"
+                        else:
+                            when = f"Hoje, há {diff.seconds // 3600} h"
                     elif diff.days == 1:
                         when = "Ontem"
                     else:
@@ -218,9 +221,9 @@ class DashboardScreen(BaseScreen):
             else:
                 when = "N/A"
             
-            movements_data.append((mov_type, item, qty_str, when))
+            movements_data.append((mov_type, texto, when))
         
-        for mov_type, item, qty, when in movements_data:
+        for mov_type, texto, when in movements_data:
             mov_frame = ctk.CTkFrame(chart2_frame, fg_color="transparent")
             mov_frame.pack(fill="x", padx=15, pady=2)
             
@@ -229,7 +232,7 @@ class DashboardScreen(BaseScreen):
             
             mov_label = ctk.CTkLabel(
                 mov_frame, 
-                text=f"{mov_type}: {item} ({qty}) - {when}", 
+                text=f"{texto} — {when}", 
                 anchor="w",
                 text_color=color,
                 font=ctk.CTkFont(size=11)
@@ -336,10 +339,27 @@ class DashboardScreen(BaseScreen):
     
     def on_show(self):
         """Callback quando a tela é mostrada"""
-        # Aqui podemos atualizar os dados do dashboard
-        print("Dashboard mostrado - atualizando dados...")
+        # Atualizar dados e manter atualização periódica
+        self.refresh_all()
+        self.schedule_auto_refresh()
     
-    def refresh_data(self):
-        """Atualiza os dados do dashboard"""
-        # TODO: Implementar atualização real dos dados
-        pass
+    def refresh_all(self):
+        """Reconstrói o conteúdo do dashboard para refletir dados atuais"""
+        try:
+            # Limpar conteúdo atual do frame principal e recriar UI
+            for child in self.frame.winfo_children():
+                try:
+                    child.destroy()
+                except Exception:
+                    pass
+            self.setup_ui()
+        except Exception:
+            # Em caso de erro, evitar quebra de tela
+            pass
+
+    def schedule_auto_refresh(self):
+        """Agenda auto-refresh periódico do dashboard"""
+        try:
+            self.frame.after(self.auto_refresh_ms, self.refresh_all)
+        except Exception:
+            pass

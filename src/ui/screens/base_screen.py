@@ -26,6 +26,11 @@ class BaseScreen:
         if not self.is_visible:
             self.frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
             self.is_visible = True
+            # Aplicar tema aos botões desta tela ao exibir
+            try:
+                self._apply_button_theme_recursive(self.frame)
+            except Exception:
+                pass
             self.on_show()
     
     def hide(self):
@@ -67,6 +72,30 @@ class BaseScreen:
             subtitle_label.pack(anchor="w", pady=(5, 0))
         
         return title_frame
+    
+    def _apply_button_theme_recursive(self, widget):
+        """Aplica o tema padrão de botões a todos CTkButton dentro do widget (recursivo)."""
+        try:
+            import customtkinter as ctk
+        except Exception:
+            return
+        # Ajuste o próprio widget se for CTkButton
+        if isinstance(widget, ctk.CTkButton):
+            try:
+                text = (widget.cget("text") or "").lower()
+            except Exception:
+                text = ""
+            # Botões de perigo (cancelar/fechar)
+            if any(k in text for k in ["cancelar", "fechar"]):
+                widget.configure(fg_color=("#cc3333", "#cc3333"), hover_color=("#a82828", "#a82828"))
+            else:
+                widget.configure(fg_color=("#00AE9D", "#00AE9D"), hover_color=("#008f82", "#008f82"))
+        # Recursão em filhos, se possível
+        try:
+            for child in widget.winfo_children():
+                self._apply_button_theme_recursive(child)
+        except Exception:
+            pass
     
     def create_section(self, title, content_frame_class=None):
         """Cria uma seção com título"""
