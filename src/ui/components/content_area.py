@@ -7,6 +7,7 @@ from ..screens.dashboard import DashboardScreen
 from ..screens.brindes import BrindesScreen
 from ..screens.estoque_brindes import EstoqueBrindesScreen
 from ..screens.movimentacoes import MovimentacoesScreen
+from ..screens.fornecedores import FornecedoresScreen
 from ..screens.relatorios import RelatoriosScreen
 from ..screens.configuracoes import ConfiguracoesScreen
 from ...utils.user_manager import UserManager
@@ -41,6 +42,7 @@ class ContentArea:
             'brindes': lambda: BrindesScreen(self.frame, user_manager),
             'estoque_brindes': lambda: EstoqueBrindesScreen(self.frame, user_manager),
             'movimentacoes': lambda: MovimentacoesScreen(self.frame),
+            'fornecedores': lambda: FornecedoresScreen(self.frame, user_manager),
             'relatorios': lambda: RelatoriosScreen(self.frame),
             'configuracoes': lambda: ConfiguracoesScreen(self.frame),
         }
@@ -84,6 +86,10 @@ class ContentArea:
     def show_movimentacoes(self):
         """Mostra a tela de movimentações"""
         self.show_screen('movimentacoes')
+    
+    def show_fornecedores(self):
+        """Mostra a tela de fornecedores"""
+        self.show_screen('fornecedores')
     
     def show_relatorios(self):
         """Mostra a tela de relatórios"""

@@ -32,6 +32,18 @@ class NewBrindeDialog(FormDialog):
             return [f.get('nome', 'N/A') for f in data_provider.get_filiais() if f and f.get('nome')]
         except Exception:
             return []
+    
+    def _safe_fornecedor_names(self):
+        try:
+            fornecedores = data_provider.get_fornecedores()
+            if isinstance(fornecedores, list):
+                return [f.get('nome', 'N/A') for f in fornecedores if f and f.get('nome')]
+            else:
+                print(f"Erro: get_fornecedores() retornou {type(fornecedores)} ao invés de list")
+                return []
+        except Exception as e:
+            print(f"Erro ao obter fornecedores: {e}")
+            return []
 
     def _build_fields(self):
         return [
@@ -71,6 +83,13 @@ class NewBrindeDialog(FormDialog):
                 'type': 'combobox',
                 'required': True,
                 'options': data_provider.get_unidades_medida()
+            },
+            {
+                'key': 'fornecedor',
+                'label': 'Fornecedor',
+                'type': 'combobox',
+                'required': False,
+                'options': self._safe_fornecedor_names()
             },
             {
                 'key': 'filial',

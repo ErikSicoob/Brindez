@@ -359,6 +359,128 @@ class MockDataManager:
             brindes = [b for b in brindes if b.get('categoria') == categoria]
         
         return brindes
+    
+    # Métodos de Fornecedores (Mock)
+    def get_fornecedores(self) -> List[Dict[str, Any]]:
+        """Retorna lista de fornecedores"""
+        # Verificar se já existem fornecedores nos dados
+        fornecedores_existentes = self.data.get('fornecedores', [])
+        
+        # Se não existem, criar dados padrão
+        if not fornecedores_existentes:
+            fornecedores_padrao = [
+                {
+                    'id': 1,
+                    'codigo': 'FOR001',
+                    'nome': 'Brindes & Cia',
+                    'contato_nome': 'João Silva',
+                    'telefone': '(11) 3333-4444',
+                    'email': 'contato@brindesecia.com.br',
+                    'endereco': 'Rua das Flores, 123',
+                    'cidade': 'São Paulo',
+                    'estado': 'SP',
+                    'cep': '01234-567',
+                    'cnpj': '12.345.678/0001-90',
+                    'observacoes': 'Fornecedor principal de brindes',
+                    'ativo': True
+                },
+                {
+                    'id': 2,
+                    'codigo': 'FOR002',
+                    'nome': 'Papelaria Central',
+                    'contato_nome': 'Maria Santos',
+                    'telefone': '(11) 5555-6666',
+                    'email': 'vendas@papelcentral.com.br',
+                    'endereco': 'Av. Central, 456',
+                    'cidade': 'São Paulo',
+                    'estado': 'SP',
+                    'cep': '01234-890',
+                    'cnpj': '98.765.432/0001-10',
+                    'observacoes': 'Especializada em papelaria',
+                    'ativo': True
+                },
+                {
+                    'id': 3,
+                    'codigo': 'FOR003',
+                    'nome': 'Tech Brindes',
+                    'contato_nome': 'Carlos Oliveira',
+                    'telefone': '(21) 7777-8888',
+                    'email': 'info@techbrindes.com.br',
+                    'endereco': 'Rua da Tecnologia, 789',
+                    'cidade': 'Rio de Janeiro',
+                    'estado': 'RJ',
+                    'cep': '20123-456',
+                    'cnpj': '11.222.333/0001-44',
+                    'observacoes': 'Eletrônicos e gadgets',
+                    'ativo': True
+                }
+            ]
+            self.data['fornecedores'] = fornecedores_padrao
+            self.save_data()
+            return fornecedores_padrao
+        
+        return fornecedores_existentes
+    
+    def get_fornecedor_by_id(self, fornecedor_id: int) -> Optional[Dict[str, Any]]:
+        """Retorna fornecedor por ID"""
+        fornecedores = self.get_fornecedores()
+        return next((f for f in fornecedores if f['id'] == fornecedor_id), None)
+    
+    def create_fornecedor(self, data: Dict[str, Any]) -> bool:
+        """Cria novo fornecedor (mock)"""
+        fornecedores = self.data.get('fornecedores', [])
+        
+        # Gerar ID automático
+        max_id = max([f.get('id', 0) for f in fornecedores], default=0)
+        data['id'] = max_id + 1
+        
+        # Gerar código se não fornecido
+        if not data.get('codigo'):
+            max_num = 0
+            for f in fornecedores:
+                codigo = f.get('codigo', '')
+                if codigo.startswith('FOR'):
+                    try:
+                        num = int(codigo[3:])
+                        max_num = max(max_num, num)
+                    except:
+                        pass
+            data['codigo'] = f"FOR{max_num + 1:03d}"
+        
+        data['ativo'] = True
+        fornecedores.append(data)
+        self.data['fornecedores'] = fornecedores
+        self.save_data()
+        return True
+    
+    def update_fornecedor(self, fornecedor_id: int, data: Dict[str, Any]) -> bool:
+        """Atualiza fornecedor (mock)"""
+        fornecedores = self.data.get('fornecedores', [])
+        for i, f in enumerate(fornecedores):
+            if f['id'] == fornecedor_id:
+                fornecedores[i].update(data)
+                self.save_data()
+                return True
+        return False
+    
+    def delete_fornecedor(self, fornecedor_id: int) -> bool:
+        """Remove fornecedor (mock - soft delete)"""
+        return self.update_fornecedor(fornecedor_id, {'ativo': False})
+    
+    def search_fornecedores(self, termo: str) -> List[Dict[str, Any]]:
+        """Busca fornecedores por termo (mock)"""
+        fornecedores = self.get_fornecedores()
+        if not termo:
+            return fornecedores
+        
+        termo = termo.lower()
+        return [
+            f for f in fornecedores
+            if termo in f.get('nome', '').lower() or
+               termo in f.get('codigo', '').lower() or
+               termo in f.get('contato_nome', '').lower() or
+               termo in f.get('email', '').lower()
+        ]
 
 # Instância global do gerenciador
 mock_data = MockDataManager()

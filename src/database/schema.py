@@ -133,6 +133,29 @@ class DatabaseSchema:
             )
         """)
         
+        # Tabela de fornecedores
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS fornecedores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                codigo TEXT UNIQUE NOT NULL,
+                nome TEXT NOT NULL,
+                contato_nome TEXT,
+                telefone TEXT,
+                email TEXT,
+                endereco TEXT,
+                cidade TEXT,
+                estado TEXT,
+                cep TEXT,
+                cnpj TEXT,
+                observacoes TEXT,
+                ativo BOOLEAN DEFAULT 1,
+                usuario_criacao_id INTEGER,
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (usuario_criacao_id) REFERENCES usuarios (id)
+            )
+        """)
+
         # Tabela de brindes
         conn.execute("""
             CREATE TABLE IF NOT EXISTS brindes (
@@ -144,6 +167,7 @@ class DatabaseSchema:
                 valor_unitario DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                 unidade_medida_id INTEGER NOT NULL,
                 filial_id INTEGER NOT NULL,
+                fornecedor_id INTEGER,
                 observacoes TEXT,
                 ativo BOOLEAN DEFAULT 1,
                 usuario_criacao_id INTEGER,
@@ -152,6 +176,7 @@ class DatabaseSchema:
                 FOREIGN KEY (categoria_id) REFERENCES categorias (id),
                 FOREIGN KEY (unidade_medida_id) REFERENCES unidades_medida (id),
                 FOREIGN KEY (filial_id) REFERENCES filiais (id),
+                FOREIGN KEY (fornecedor_id) REFERENCES fornecedores (id),
                 FOREIGN KEY (usuario_criacao_id) REFERENCES usuarios (id)
             )
         """)
@@ -197,8 +222,12 @@ class DatabaseSchema:
         """)
         
         # Índices para melhorar performance
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_fornecedores_codigo ON fornecedores (codigo)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_fornecedores_nome ON fornecedores (nome)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_fornecedores_ativo ON fornecedores (ativo)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_brindes_categoria ON brindes (categoria_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_brindes_filial ON brindes (filial_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_brindes_fornecedor ON brindes (fornecedor_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_brindes_codigo ON brindes (codigo)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_movimentacoes_brinde ON movimentacoes (brinde_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_movimentacoes_data ON movimentacoes (data_hora)")
@@ -271,6 +300,22 @@ class DatabaseSchema:
                 VALUES (?, ?)
             """, (codigo, descricao))
         
+        # Fornecedores iniciais
+        fornecedores_iniciais = [
+            ('FOR001', 'Brindes & Cia', 'João Silva', '(11) 3333-4444', 'contato@brindesecia.com.br', 
+             'Rua das Flores, 123', 'São Paulo', 'SP', '01234-567', '12.345.678/0001-90', 'Fornecedor principal de brindes'),
+            ('FOR002', 'Papelaria Central', 'Maria Santos', '(11) 5555-6666', 'vendas@papelcentral.com.br',
+             'Av. Central, 456', 'São Paulo', 'SP', '01234-890', '98.765.432/0001-10', 'Especializada em papelaria'),
+            ('FOR003', 'Tech Brindes', 'Carlos Oliveira', '(21) 7777-8888', 'info@techbrindes.com.br',
+             'Rua da Tecnologia, 789', 'Rio de Janeiro', 'RJ', '20123-456', '11.222.333/0001-44', 'Eletrônicos e gadgets')
+        ]
+        
+        for codigo, nome, contato_nome, telefone, email, endereco, cidade, estado, cep, cnpj, observacoes in fornecedores_iniciais:
+            conn.execute("""
+                INSERT OR IGNORE INTO fornecedores (codigo, nome, contato_nome, telefone, email, endereco, cidade, estado, cep, cnpj, observacoes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (codigo, nome, contato_nome, telefone, email, endereco, cidade, estado, cep, cnpj, observacoes))
+
         # Usuário admin inicial
         conn.execute("""
             INSERT OR IGNORE INTO usuarios (username, nome, email, filial_id, perfil)
@@ -281,32 +326,35 @@ class DatabaseSchema:
         """Atualiza o banco de dados se necessário"""
         conn = sqlite3.connect(self.db_path)
         try:
-            # Verificar versão atual
+            # Verificar se a tabela fornecedores existe
             cursor = conn.execute("""
-                SELECT valor FROM configuracoes WHERE chave = 'versao_bd'
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='fornecedores'
             """)
-            result = cursor.fetchone()
             
-            if result:
-                versao_atual = result[0]
-                if versao_atual < '1.0':
-                    self.migrate_to_v1_0(conn)
-            else:
-                # Primeira execução, inserir versão
-                conn.execute("""
-                    INSERT INTO configuracoes (chave, valor, descricao)
-                    VALUES ('versao_bd', '1.0', 'Versão do banco de dados')
-                """)
+            if not cursor.fetchone():
+                print("Tabela fornecedores não encontrada. Recriando banco...")
+                conn.close()
+                # Fazer backup do banco atual
+                if os.path.exists(self.db_path):
+                    backup_path = f"{self.db_path}.backup"
+                    os.rename(self.db_path, backup_path)
+                    print(f"Backup criado: {backup_path}")
+                
+                # Recriar banco
+                self.create_database()
+                return
             
-            conn.commit()
-            
-        except sqlite3.OperationalError:
-            # Tabela não existe, criar banco completo
+            # Garantir que todas as tabelas existem
             self.create_tables(conn)
             self.insert_initial_data(conn)
             conn.commit()
+        except Exception as e:
+            print(f"Erro ao atualizar banco: {e}")
+            conn.rollback()
         finally:
-            conn.close()
+            if not conn.in_transaction:
+                conn.close()
     
     def migrate_to_v1_0(self, conn: sqlite3.Connection):
         """Migração para versão 1.0"""

@@ -6,6 +6,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 from .base_screen import BaseScreen
 from ..components.form_dialog import FormDialog
+from .cadastro_brindes import CadastroBrindesScreen
 from ...data.data_provider import data_provider
 from ...utils.validators import BrindeValidator, MovimentacaoValidator, ValidationError, BusinessRuleError
 
@@ -649,71 +650,97 @@ class BrindesScreen(BaseScreen):
     
 
     def new_brinde(self):
-        """Abre formulário de novo brinde"""
-        fields = [
-            {
-                'key': 'descricao',
-                'label': 'Descrição',
-                'type': 'entry',
-                'required': True,
-                'placeholder': 'Ex: Caneta Azul BIC'
-            },
-            {
-                'key': 'categoria',
-                'label': 'Categoria',
-                'type': 'combobox',
-                'required': True,
-                'options': data_provider.get_categorias()
-            },
-            {
-                'key': 'quantidade',
-                'label': 'Quantidade',
-                'type': 'number',
-                'required': True,
-                'placeholder': '0',
-                'validation': 'positive_number'
-            },
-            {
-                'key': 'valor_unitario',
-                'label': 'Valor Unitário (R$)',
-                'type': 'number',
-                'required': True,
-                'placeholder': '0,00',
-                'validation': 'positive_number'
-            },
-            {
-                'key': 'unidade_medida',
-                'label': 'Unidade de Medida',
-                'type': 'combobox',
-                'required': True,
-                'options': data_provider.get_unidades_medida()
-            },
-            {
-                'key': 'filial',
-                'label': 'Filial',
-                'type': 'checkbox_group_quantities',
-                'required': True,
-                'options': [f.get('nome', 'N/A') for f in data_provider.get_filiais() if f.get('nome')]
-            },
-            # Removido dividir_estoque: agora a alocação é manual por filial
-        ]
-        
-        dialog = FormDialog(
-            self.frame,
-            "➕ Novo Brinde",
-            fields,
-            on_submit=self.save_new_brinde,
-            show_header=False
-        )
-        # Pré-selecionar a filial do usuário (quando não-admin)
-        initial_values = {}
+        """Abre o formulário modal para cadastro de novo brinde"""
         try:
-            user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
-            if user and user.get('filial'):
-                initial_values['filial'] = {user.get('filial'): 0}
-        except Exception:
-            pass
-        dialog.show(initial_values)
+            # Usar o frame pai como base para o modal
+            parent_window = self.parent
+            
+            # Se o pai não for uma janela, tentar encontrar uma janela pai
+            if not hasattr(parent_window, 'winfo_toplevel'):
+                parent_window = parent_window.winfo_toplevel()
+                
+            # Criar a tela de cadastro como um modal
+            self.cadastro_screen = CadastroBrindesScreen(
+                parent=parent_window,
+                user_manager=self.user_manager,
+                on_success=self.on_brinde_created
+            )
+            
+            # Configurar o que acontece quando o modal for fechado
+            def on_modal_close():
+                if hasattr(self, 'cadastro_screen'):
+                    try:
+                        if hasattr(self.cadastro_screen, 'window'):
+                            self.cadastro_screen.window.destroy()
+                    except Exception as e:
+                        print(f"Erro ao fechar janela: {e}")
+                    finally:
+                        if hasattr(self, 'cadastro_screen'):
+                            del self.cadastro_screen
+            
+            if hasattr(self.cadastro_screen, 'window'):
+                self.cadastro_screen.window.protocol("WM_DELETE_WINDOW", on_modal_close)
+            
+        except Exception as e:
+            print(f"Erro ao abrir cadastro de brinde: {e}")
+            messagebox.showerror("Erro", f"Erro ao abrir cadastro de brinde: {e}")
+            # Garantir que a tela atual continue visível
+            self.show()
+            
+    def _get_root(self):
+        """Obtém a janela raiz da aplicação"""
+        # Tenta obter o widget raiz de várias maneiras
+        widget = self
+        
+        # Primeiro tenta encontrar o widget raiz através de parent
+        if hasattr(self, 'parent') and self.parent is not None:
+            widget = self.parent
+            while hasattr(widget, 'parent') and widget.parent is not None:
+                widget = widget.parent
+        # Se não encontrar, tenta através de master
+        elif hasattr(self, 'master') and self.master is not None:
+            widget = self.master
+            while hasattr(widget, 'master') and widget.master is not None:
+                widget = widget.master
+        # Se ainda não encontrou, tenta obter a janela atual
+        elif hasattr(self, 'winfo_toplevel'):
+            return self.winfo_toplevel()
+            
+        # Se o widget atual não for uma janela, sobe na hierarquia
+        while hasattr(widget, 'winfo_parent') and widget.winfo_parent():
+            widget = widget._nametowidget(widget.winfo_parent())
+            
+        return widget
+    
+    def on_brinde_created(self):
+        """Callback chamado quando um brinde é criado com sucesso"""
+        try:
+            # Mostrar mensagem de sucesso
+            messagebox.showinfo("Sucesso", "Brinde cadastrado com sucesso!")
+            
+            # Recarregar dados
+            self.load_brindes()
+            self.refresh_table()
+            
+            # Garantir que a tela está visível
+            self.show()
+            
+        except Exception as e:
+            print(f"Erro ao atualizar lista de brindes: {e}")
+            messagebox.showerror("Erro", f"Erro ao atualizar lista de brindes: {e}")
+    
+    def _safe_get_fornecedor_names(self):
+        """Obtém nomes de fornecedores de forma segura"""
+        try:
+            fornecedores = data_provider.get_fornecedores()
+            if isinstance(fornecedores, list):
+                return [f.get('nome', 'N/A') for f in fornecedores if f and f.get('nome')]
+            else:
+                print(f"Erro: get_fornecedores() retornou {type(fornecedores)} ao invés de list")
+                return []
+        except Exception as e:
+            print(f"Erro ao obter fornecedores: {e}")
+            return []
     
     def save_new_brinde(self, data):
         """Salva um novo brinde"""

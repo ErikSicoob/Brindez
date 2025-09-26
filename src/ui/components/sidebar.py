@@ -23,6 +23,7 @@ class Sidebar:
             {'key': 'brindes', 'text': '🎁 Brindes', 'icon': '🎁'},
             {'key': 'estoque_brindes', 'text': '📦 Estoque de Brindes', 'icon': '📦'},
             {'key': 'movimentacoes', 'text': '📦 Movimentações', 'icon': '📦'},
+            {'key': 'fornecedores', 'text': '🏢 Fornecedores', 'icon': '🏢'},
             {'key': 'relatorios', 'text': '📈 Relatórios', 'icon': '📈'},
             {'key': 'configuracoes', 'text': '⚙️ Configurações', 'icon': '⚙️'}
         ]

@@ -24,13 +24,23 @@ class BaseScreen:
     def show(self):
         """Mostra a tela"""
         if not self.is_visible:
+            # Configurar o gerenciamento de grid no frame pai
+            self.parent.grid_rowconfigure(0, weight=1)
+            self.parent.grid_columnconfigure(0, weight=1)
+            
+            # Configurar o frame principal
             self.frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+            self.frame.grid_rowconfigure(0, weight=1)
+            self.frame.grid_columnconfigure(0, weight=1)
+            
             self.is_visible = True
+            
             # Aplicar tema aos botões desta tela ao exibir
             try:
                 self._apply_button_theme_recursive(self.frame)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Erro ao aplicar tema aos botões: {e}")
+                
             self.on_show()
     
     def hide(self):

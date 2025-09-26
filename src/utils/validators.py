@@ -183,6 +183,10 @@ class BrindeValidator:
                 filial_value, 'Filial', filiais
             )
 
+        # Fornecedor (opcional)
+        if data.get('fornecedor'):
+            validated_data['fornecedor'] = data['fornecedor']
+        
         # Campos opcionais
         if data.get('codigo'):
             validated_data['codigo'] = Validators.validate_string_length(

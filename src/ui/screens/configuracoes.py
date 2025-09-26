@@ -64,8 +64,10 @@ class ConfiguracoesScreen(BaseScreen):
                 tabs_menu,
                 text=tab_name,
                 command=lambda t=tab_id: self.show_tab(t),
+                height=40,
                 anchor="w",
-                height=40
+                fg_color=("#00AE9D", "#00AE9D"),
+                hover_color=("#008f82", "#008f82")
             )
             btn.pack(fill="x", padx=10, pady=5)
             self.tab_buttons[tab_id] = btn
@@ -94,11 +96,11 @@ class ConfiguracoesScreen(BaseScreen):
         
         # Resetar cores dos botões
         for btn in self.tab_buttons.values():
-            btn.configure(fg_color=("gray75", "gray25"))
+            btn.configure(fg_color=("#00AE9D", "#00AE9D"))
         
         # Mostrar aba selecionada
         self.tab_frames[tab_id].grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        self.tab_buttons[tab_id].configure(fg_color=("blue", "blue"))
+        self.tab_buttons[tab_id].configure(fg_color=("#008f82", "#008f82"))
     
     def create_gerais_tab(self):
         """Cria a aba de configurações gerais"""
@@ -125,7 +127,14 @@ class ConfiguracoesScreen(BaseScreen):
         db_entry = ctk.CTkEntry(db_path_frame, placeholder_text="C:\\dados\\brindez.db")
         db_entry.grid(row=1, column=0, sticky="ew", padx=(0, 10))
         
-        db_btn = ctk.CTkButton(db_path_frame, text="📁", width=40, command=self.browse_db_path)
+        db_btn = ctk.CTkButton(
+            db_path_frame, 
+            text="📁", 
+            width=40, 
+            command=self.browse_db_path,
+            fg_color=("#00AE9D", "#00AE9D"),
+            hover_color=("#008f82", "#008f82")
+        )
         db_btn.grid(row=1, column=1)
         
         # Estoque
@@ -156,7 +165,9 @@ class ConfiguracoesScreen(BaseScreen):
             stock_section,
             text="💾 Salvar",
             command=self.save_min_stock,
-            width=120
+            width=120,
+            fg_color=("#00AE9D", "#00AE9D"),
+            hover_color=("#008f82", "#008f82")
         )
         save_min_btn.pack(padx=15, pady=(0, 15), anchor="w")
 
@@ -185,7 +196,13 @@ class ConfiguracoesScreen(BaseScreen):
         title.pack(pady=(0, 20), anchor="w")
         
         # Botão nova categoria
-        new_cat_btn = ctk.CTkButton(frame, text="➕ Nova Categoria", command=self.new_category)
+        new_cat_btn = ctk.CTkButton(
+            frame, 
+            text="➕ Nova Categoria", 
+            command=self.new_category,
+            fg_color=("#00AE9D", "#00AE9D"),
+            hover_color=("#008f82", "#008f82")
+        )
         new_cat_btn.pack(pady=(0, 15), anchor="w")
         
         # Lista de categorias
@@ -206,10 +223,26 @@ class ConfiguracoesScreen(BaseScreen):
             cat_label = ctk.CTkLabel(cat_frame, text=f"📂 {cat_nome}", anchor="w")
             cat_label.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
             
-            edit_btn = ctk.CTkButton(cat_frame, text="✏️", width=30, height=25, command=lambda c=cat_nome: self.edit_category(c))
+            edit_btn = ctk.CTkButton(
+                cat_frame, 
+                text="✏️", 
+                width=30, 
+                height=25, 
+                command=lambda c=cat_nome: self.edit_category(c),
+                fg_color=("#00AE9D", "#00AE9D"),
+                hover_color=("#008f82", "#008f82")
+            )
             edit_btn.grid(row=0, column=1, padx=5)
             
-            delete_btn = ctk.CTkButton(cat_frame, text="🗑️", width=30, height=25, command=lambda c=cat_nome: self.delete_category(c))
+            delete_btn = ctk.CTkButton(
+                cat_frame, 
+                text="🗑️", 
+                width=30, 
+                height=25, 
+                command=lambda c=cat_nome: self.delete_category(c),
+                fg_color=("#cc3333", "#cc3333"),
+                hover_color=("#a82828", "#a82828")
+            )
             delete_btn.grid(row=0, column=2, padx=5)
     
     def create_unidades_tab(self):
@@ -221,7 +254,13 @@ class ConfiguracoesScreen(BaseScreen):
         title.pack(pady=(0, 20), anchor="w")
         
         # Botão nova unidade
-        new_unit_btn = ctk.CTkButton(frame, text="➕ Nova Unidade", command=self.new_unit)
+        new_unit_btn = ctk.CTkButton(
+            frame, 
+            text="➕ Nova Unidade", 
+            command=self.new_unit,
+            fg_color=("#00AE9D", "#00AE9D"),
+            hover_color=("#008f82", "#008f82")
+        )
         new_unit_btn.pack(pady=(0, 15), anchor="w")
         
         # Lista de unidades
@@ -245,10 +284,26 @@ class ConfiguracoesScreen(BaseScreen):
             unit_label = ctk.CTkLabel(unit_frame, text=f"📏 {code} - {desc}", anchor="w")
             unit_label.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
             
-            edit_btn = ctk.CTkButton(unit_frame, text="✏️", width=30, height=25, command=lambda c=code: self.edit_unit(c))
+            edit_btn = ctk.CTkButton(
+                unit_frame, 
+                text="✏️", 
+                width=30, 
+                height=25, 
+                command=lambda c=code: self.edit_unit(c),
+                fg_color=("#00AE9D", "#00AE9D"),
+                hover_color=("#008f82", "#008f82")
+            )
             edit_btn.grid(row=0, column=1, padx=5)
             
-            delete_btn = ctk.CTkButton(unit_frame, text="🗑️", width=30, height=25, command=lambda c=code: self.delete_unit(c))
+            delete_btn = ctk.CTkButton(
+                unit_frame, 
+                text="🗑️", 
+                width=30, 
+                height=25, 
+                command=lambda c=code: self.delete_unit(c),
+                fg_color=("#cc3333", "#cc3333"),
+                hover_color=("#a82828", "#a82828")
+            )
             delete_btn.grid(row=0, column=2, padx=5)
     
     def create_usuarios_tab(self):
@@ -260,7 +315,13 @@ class ConfiguracoesScreen(BaseScreen):
         title.pack(pady=(0, 20), anchor="w")
         
         # Botão novo usuário
-        new_user_btn = ctk.CTkButton(frame, text="➕ Novo Usuário", command=self.new_user)
+        new_user_btn = ctk.CTkButton(
+            frame, 
+            text="➕ Novo Usuário", 
+            command=self.new_user,
+            fg_color=("#00AE9D", "#00AE9D"),
+            hover_color=("#008f82", "#008f82")
+        )
         new_user_btn.pack(pady=(0, 15), anchor="w")
         
         # Lista de usuários
@@ -295,7 +356,15 @@ class ConfiguracoesScreen(BaseScreen):
             )
             user_label.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
             
-            edit_btn = ctk.CTkButton(user_frame, text="✏️", width=30, height=25, command=lambda u=username: self.edit_user(u))
+            edit_btn = ctk.CTkButton(
+                user_frame, 
+                text="✏️", 
+                width=30, 
+                height=25, 
+                command=lambda u=username: self.edit_user(u),
+                fg_color=("#00AE9D", "#00AE9D"),
+                hover_color=("#008f82", "#008f82")
+            )
             edit_btn.grid(row=0, column=1, padx=5)
             
             toggle_btn = ctk.CTkButton(

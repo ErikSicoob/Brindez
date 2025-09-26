@@ -6,7 +6,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from .models import (
     filial_model, categoria_model, unidade_medida_model, 
-    usuario_model, brinde_model, movimentacao_model
+    usuario_model, brinde_model, movimentacao_model, fornecedor_model
 )
 from .schema import db_schema
 from ..utils.audit_logger import audit_logger
@@ -767,6 +767,76 @@ class DatabaseDataManager:
             'itens_estoque_baixo': itens_baixo,
             'estoque_minimo': estoque_minimo
         }
+    
+    # Métodos de Fornecedores
+    def get_fornecedores(self) -> List[Dict[str, Any]]:
+        """Retorna lista de fornecedores"""
+        try:
+            print(f"DEBUG: fornecedor_model type: {type(fornecedor_model)}")
+            print(f"DEBUG: fornecedor_model.get_all type: {type(fornecedor_model.get_all)}")
+            result = fornecedor_model.get_all()
+            print(f"DEBUG: result type: {type(result)}")
+            return result
+        except Exception as e:
+            print(f"ERRO em DatabaseDataManager.get_fornecedores: {e}")
+            return []
+    
+    def get_fornecedor_by_id(self, fornecedor_id: int) -> Optional[Dict[str, Any]]:
+        """Retorna fornecedor por ID"""
+        return fornecedor_model.get_by_id(fornecedor_id)
+    
+    def create_fornecedor(self, data: Dict[str, Any]) -> bool:
+        """Cria novo fornecedor"""
+        try:
+            # Gerar código automático se não fornecido
+            if not data.get('codigo'):
+                # Buscar próximo número sequencial
+                fornecedores = self.get_fornecedores()
+                max_num = 0
+                for f in fornecedores:
+                    codigo = f.get('codigo', '')
+                    if codigo.startswith('FOR'):
+                        try:
+                            num = int(codigo[3:])
+                            max_num = max(max_num, num)
+                        except:
+                            pass
+                data['codigo'] = f"FOR{max_num + 1:03d}"
+            
+            fornecedor_id = fornecedor_model.create(data)
+            if fornecedor_id:
+                self.clear_cache()
+                return True
+            return False
+        except Exception as e:
+            print(f"Erro ao criar fornecedor: {e}")
+            return False
+    
+    def update_fornecedor(self, fornecedor_id: int, data: Dict[str, Any]) -> bool:
+        """Atualiza fornecedor"""
+        try:
+            sucesso = fornecedor_model.update(fornecedor_id, data)
+            if sucesso:
+                self.clear_cache()
+            return sucesso
+        except Exception as e:
+            print(f"Erro ao atualizar fornecedor: {e}")
+            return False
+    
+    def delete_fornecedor(self, fornecedor_id: int) -> bool:
+        """Remove fornecedor (soft delete)"""
+        try:
+            sucesso = fornecedor_model.toggle_ativo(fornecedor_id)
+            if sucesso:
+                self.clear_cache()
+            return sucesso
+        except Exception as e:
+            print(f"Erro ao remover fornecedor: {e}")
+            return False
+    
+    def search_fornecedores(self, termo: str) -> List[Dict[str, Any]]:
+        """Busca fornecedores por termo"""
+        return fornecedor_model.search(termo)
 
 # Instância global do gerenciador
 db_data_manager = DatabaseDataManager()

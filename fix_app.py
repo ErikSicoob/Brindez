@@ -1,4 +1,11 @@
 """
+Script para corrigir problemas de layout na aplicação principal.
+"""
+
+def fix_app():
+    """Corrige o layout da aplicação principal."""
+    content = """"""
+"""
 Classe principal da aplicação Brinde
 """
 
@@ -93,3 +100,10 @@ class BrindeApp:
         x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f'{width}x{height}+{x}+{y}')
+"""
+    with open("c:\\Pojetos - DEV\\Brindez\\src\\app.py", "w", encoding="utf-8") as f:
+        f.write(content)
+
+if __name__ == "__main__":
+    fix_app()
+    print("Correções na aplicação principal aplicadas com sucesso!")

@@ -531,6 +531,41 @@ class DataProvider:
             shutil.copy2(self._current_provider.data_file, backup_path)
             return backup_path
     
+    # Métodos de Fornecedores
+    @performance_monitor.measure_time
+    def get_fornecedores(self) -> List[Dict[str, Any]]:
+        """Retorna lista de fornecedores"""
+        try:
+            result = self._current_provider.get_fornecedores()
+            if not isinstance(result, list):
+                print(f"ERRO: _current_provider.get_fornecedores() retornou {type(result)} ao invés de list")
+                print(f"Provider atual: {type(self._current_provider)}")
+                return []
+            return result
+        except Exception as e:
+            print(f"ERRO em get_fornecedores: {e}")
+            return []
+    
+    def get_fornecedor_by_id(self, fornecedor_id: int) -> Optional[Dict[str, Any]]:
+        """Retorna fornecedor por ID"""
+        return self._current_provider.get_fornecedor_by_id(fornecedor_id)
+    
+    def create_fornecedor(self, data: Dict[str, Any]) -> bool:
+        """Cria novo fornecedor"""
+        return self._current_provider.create_fornecedor(data)
+    
+    def update_fornecedor(self, fornecedor_id: int, data: Dict[str, Any]) -> bool:
+        """Atualiza fornecedor"""
+        return self._current_provider.update_fornecedor(fornecedor_id, data)
+    
+    def delete_fornecedor(self, fornecedor_id: int) -> bool:
+        """Remove fornecedor"""
+        return self._current_provider.delete_fornecedor(fornecedor_id)
+    
+    def search_fornecedores(self, termo: str) -> List[Dict[str, Any]]:
+        """Busca fornecedores por termo"""
+        return self._current_provider.search_fornecedores(termo)
+
     def get_provider_info(self) -> Dict[str, Any]:
         """Retorna informações do provedor atual"""
         return {

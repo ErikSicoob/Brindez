@@ -439,6 +439,94 @@ class MovimentacaoModel(BaseModel):
         rows = self.execute_query(query, tuple(params) if params else None)
         return [dict(row) for row in rows]
 
+class FornecedorModel(BaseModel):
+    """Modelo para gerenciar fornecedores"""
+    
+    def get_all(self, ativo_apenas: bool = True) -> List[Dict[str, Any]]:
+        """Retorna todos os fornecedores"""
+        query = "SELECT * FROM fornecedores"
+        if ativo_apenas:
+            query += " WHERE ativo = 1"
+        query += " ORDER BY nome"
+        
+        rows = self.execute_query(query)
+        return [dict(row) for row in rows]
+    
+    def get_by_id(self, fornecedor_id: int) -> Optional[Dict[str, Any]]:
+        """Retorna fornecedor por ID"""
+        query = "SELECT * FROM fornecedores WHERE id = ?"
+        rows = self.execute_query(query, (fornecedor_id,))
+        return dict(rows[0]) if rows else None
+    
+    def get_by_codigo(self, codigo: str) -> Optional[Dict[str, Any]]:
+        """Retorna fornecedor por código"""
+        query = "SELECT * FROM fornecedores WHERE codigo = ?"
+        rows = self.execute_query(query, (codigo,))
+        return dict(rows[0]) if rows else None
+    
+    def create(self, data: Dict[str, Any]) -> int:
+        """Cria novo fornecedor"""
+        query = """
+            INSERT INTO fornecedores (codigo, nome, contato_nome, telefone, email, endereco, 
+                                    cidade, estado, cep, cnpj, observacoes, usuario_criacao_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        conn = self.get_connection()
+        try:
+            cursor = conn.execute(query, (
+                data['codigo'], data['nome'], data.get('contato_nome'),
+                data.get('telefone'), data.get('email'), data.get('endereco'),
+                data.get('cidade'), data.get('estado'), data.get('cep'),
+                data.get('cnpj'), data.get('observacoes'), data.get('usuario_criacao_id')
+            ))
+            conn.commit()
+            return cursor.lastrowid
+        finally:
+            conn.close()
+    
+    def update(self, fornecedor_id: int, data: Dict[str, Any]) -> bool:
+        """Atualiza fornecedor"""
+        query = """
+            UPDATE fornecedores 
+            SET codigo = ?, nome = ?, contato_nome = ?, telefone = ?, email = ?, 
+                endereco = ?, cidade = ?, estado = ?, cep = ?, cnpj = ?, observacoes = ?,
+                data_atualizacao = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """
+        affected = self.execute_update(query, (
+            data['codigo'], data['nome'], data.get('contato_nome'),
+            data.get('telefone'), data.get('email'), data.get('endereco'),
+            data.get('cidade'), data.get('estado'), data.get('cep'),
+            data.get('cnpj'), data.get('observacoes'), fornecedor_id
+        ))
+        return affected > 0
+    
+    def toggle_ativo(self, fornecedor_id: int) -> bool:
+        """Ativa/desativa fornecedor"""
+        query = """
+            UPDATE fornecedores 
+            SET ativo = NOT ativo, data_atualizacao = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """
+        affected = self.execute_update(query, (fornecedor_id,))
+        return affected > 0
+    
+    def delete(self, fornecedor_id: int) -> bool:
+        """Remove fornecedor (soft delete)"""
+        return self.toggle_ativo(fornecedor_id)
+    
+    def search(self, termo: str) -> List[Dict[str, Any]]:
+        """Busca fornecedores por termo"""
+        query = """
+            SELECT * FROM fornecedores 
+            WHERE (nome LIKE ? OR codigo LIKE ? OR contato_nome LIKE ? OR email LIKE ?) 
+            AND ativo = 1
+            ORDER BY nome
+        """
+        termo_like = f"%{termo}%"
+        rows = self.execute_query(query, (termo_like, termo_like, termo_like, termo_like))
+        return [dict(row) for row in rows]
+
 # Instâncias dos modelos
 filial_model = FilialModel()
 categoria_model = CategoriaModel()
@@ -446,3 +534,4 @@ unidade_medida_model = UnidadeMedidaModel()
 usuario_model = UsuarioModel()
 brinde_model = BrindeModel()
 movimentacao_model = MovimentacaoModel()
+fornecedor_model = FornecedorModel()

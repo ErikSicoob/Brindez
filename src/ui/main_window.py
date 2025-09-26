@@ -50,6 +50,7 @@ class MainWindow:
             'brindes': self.content_area.show_brindes,
             'estoque_brindes': self.content_area.show_estoque_brindes,
             'movimentacoes': self.content_area.show_movimentacoes,
+            'fornecedores': self.content_area.show_fornecedores,
             'relatorios': self.content_area.show_relatorios,
             'configuracoes': self.content_area.show_configuracoes
         }
