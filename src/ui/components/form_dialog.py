@@ -49,6 +49,11 @@ class FormDialog:
         except Exception:
             self.dialog.geometry("520x560")
         self.dialog.resizable(True, True)
+        # Garantir tamanho mínimo para não cortar a área dos botões
+        try:
+            self.dialog.minsize(520, 520)
+        except Exception:
+            pass
         
         # Centralizar na tela
         self.dialog.after(100, self.center_dialog)  # Atrasar a centralização
@@ -56,6 +61,11 @@ class FormDialog:
         # Configurar como modal
         self.dialog.transient(self.parent)
         self.dialog.grab_set()
+        try:
+            self.dialog.lift()
+            self.dialog.focus_force()
+        except Exception:
+            pass
         
         # Configurar grid
         self.dialog.grid_columnconfigure(0, weight=1)
@@ -98,14 +108,42 @@ class FormDialog:
     def create_form(self, data=None):
         """Cria o formulário com estrutura simplificada"""
         # Frame scrollável simples para o formulário
-        # Altura da área de formulário ajustável; Scroll garante que botões fiquem visíveis
-        self.form_frame = ctk.CTkScrollableFrame(self.dialog, height=400)
+        # Altura levemente reduzida para garantir espaço fixo aos botões no rodapé
+        self.form_frame = ctk.CTkScrollableFrame(self.dialog, height=300)
         self.form_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
         self.form_frame.grid_columnconfigure(0, weight=1)
         
         # Criar campos diretamente no form_frame
         for i, field in enumerate(self.fields):
             self.create_field(self.form_frame, field, i, data)
+
+        # Linha de botões inline (garantia de visibilidade em telas pequenas)
+        try:
+            inline_buttons = ctk.CTkFrame(self.form_frame, fg_color="transparent")
+            inline_buttons.grid(row=len(self.fields) + 1, column=0, sticky="ew", pady=(10, 10))
+            inline_buttons.grid_columnconfigure((0, 1), weight=1)
+
+            cancel_btn2 = ctk.CTkButton(
+                inline_buttons,
+                text="❌ Cancelar",
+                command=self.cancel,
+                fg_color=("#cc3333", "#cc3333"),
+                hover_color=("#a82828", "#a82828"),
+                height=36
+            )
+            cancel_btn2.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+
+            save_btn2 = ctk.CTkButton(
+                inline_buttons,
+                text="💾 Salvar",
+                command=self.submit,
+                fg_color=("#00AE9D", "#00AE9D"),
+                hover_color=("#008f82", "#008f82"),
+                height=36
+            )
+            save_btn2.grid(row=0, column=1, padx=(5, 0), sticky="ew")
+        except Exception:
+            pass
 
     def create_field(self, parent, field, row, data=None):
         """Cria um campo do formulário com estrutura simplificada"""

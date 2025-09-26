@@ -693,7 +693,7 @@ class BrindesScreen(BaseScreen):
                 'label': 'Filial',
                 'type': 'checkbox_group_quantities',
                 'required': True,
-                'options': [f['nome'] for f in data_provider.get_filiais()]
+                'options': [f.get('nome', 'N/A') for f in data_provider.get_filiais() if f.get('nome')]
             },
             # Removido dividir_estoque: agora a alocação é manual por filial
         ]
@@ -723,7 +723,7 @@ class BrindesScreen(BaseScreen):
                 data,
                 data_provider.get_categorias(),
                 data_provider.get_unidades_medida(),
-                [f['nome'] for f in data_provider.get_filiais()]
+                [f.get('nome', 'N/A') for f in data_provider.get_filiais() if f.get('nome')]
             )
 
             # Adicionar usuário atual
@@ -761,79 +761,17 @@ class BrindesScreen(BaseScreen):
             self.refresh_brindes_list()
 
             messagebox.showinfo("Sucesso", "Brinde(s) cadastrado(s) com sucesso!")
+            return True
 
         except ValidationError as e:
             messagebox.showerror("Erro de Validação", str(e))
+            return False
         except BusinessRuleError as e:
             messagebox.showerror("Erro de Regra de Negócio", str(e))
+            return False
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao cadastrar brinde: {e.__class__.__name__}: {e}")
-        # Encontrar brinde pelo código de forma segura
-        brinde = None
-        for b in self.current_brindes:
-            if self._validate_brinde(b) and b.get('codigo') == codigo:
-                brinde = b
-                break
-        
-        if not brinde:
-            messagebox.showerror("Erro", "Brinde não encontrado")
-            return
-        
-        fields = [
-            {
-                'key': 'descricao',
-                'label': 'Descrição',
-                'type': 'entry',
-                'required': True,
-                'placeholder': 'Ex: Caneta Azul BIC'
-            },
-            {
-                'key': 'categoria',
-                'label': 'Categoria',
-                'type': 'combobox',
-                'required': True,
-                'options': data_provider.get_categorias()
-            },
-            {
-                'key': 'quantidade',
-                'label': 'Quantidade',
-                'type': 'number',
-                'required': True,
-                'placeholder': '0',
-                'validation': 'positive_number'
-            },
-            {
-                'key': 'valor_unitario',
-                'label': 'Valor Unitário (R$)',
-                'type': 'number',
-                'required': True,
-                'placeholder': '0,00',
-                'validation': 'positive_number'
-            },
-            {
-                'key': 'unidade_medida',
-                'label': 'Unidade de Medida',
-                'type': 'combobox',
-                'required': True,
-                'options': data_provider.get_unidades_medida()
-            },
-            {
-                'key': 'filial',
-                'label': 'Filial',
-                'type': 'combobox',
-                'required': True,
-                'options': [f['nome'] for f in data_provider.get_filiais()]
-            }
-        ]
-        
-        dialog = FormDialog(
-            self.frame,
-            f"✏️ Editar Brinde - {codigo}",
-            fields,
-            on_submit=lambda data: self.save_edit_brinde(brinde['id'], data),
-            on_cancel=self.cancel_current_form
-        )
-        dialog.show(brinde)
+            return False
     
     def save_edit_brinde(self, brinde_id, data):
         """Salva edição de um brinde"""
@@ -843,7 +781,7 @@ class BrindesScreen(BaseScreen):
                 data,
                 data_provider.get_categorias(),
                 data_provider.get_unidades_medida(),
-                [f['nome'] for f in data_provider.get_filiais()]
+                [f.get('nome', 'N/A') for f in data_provider.get_filiais() if f.get('nome')]
             )
             
             # Atualizar brinde
@@ -891,7 +829,7 @@ class BrindesScreen(BaseScreen):
 
         # Preparar dados para o formulário
         filiais_origem = [f"{b['filial']} ({b['quantidade']} unid.)" for b in brindes_em_estoque]
-        todas_as_filiais = [f['nome'] for f in data_provider.get_filiais()]
+        todas_as_filiais = [f.get('nome', 'N/A') for f in data_provider.get_filiais() if f.get('nome')]
         
         estoque_info = "Estoque disponível: " + ", ".join(filiais_origem)
 
