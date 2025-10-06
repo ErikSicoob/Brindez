@@ -4,7 +4,7 @@ Componente da área de conteúdo principal
 
 import customtkinter as ctk
 from ..screens.dashboard import DashboardScreen
-from ..screens.brindes import BrindesScreen
+from ..screens.brindes_refatorado import BrindesRefatoradoScreen
 from ..screens.estoque_brindes import EstoqueBrindesScreen
 from ..screens.movimentacoes import MovimentacoesScreen
 from ..screens.fornecedores import FornecedoresScreen
@@ -39,7 +39,7 @@ class ContentArea:
         # Registrar fábricas (callables) para criação das telas sob demanda
         self.screen_factories = {
             'dashboard': lambda: DashboardScreen(self.frame),
-            'brindes': lambda: BrindesScreen(self.frame, user_manager),
+            'brindes': lambda: BrindesRefatoradoScreen(self.frame, user_manager),
             'estoque_brindes': lambda: EstoqueBrindesScreen(self.frame, user_manager),
             'movimentacoes': lambda: MovimentacoesScreen(self.frame),
             'fornecedores': lambda: FornecedoresScreen(self.frame, user_manager),

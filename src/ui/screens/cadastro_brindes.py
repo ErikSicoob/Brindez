@@ -26,19 +26,19 @@ class CadastroBrindesScreen(BaseFormScreen):
     def setup_base_ui(self):
         """Configura a interface base do formulário"""
         super().setup_base_ui()
-        
-        # Frame principal do formulário - ocupar todo o espaço disponível
+
+        # Cria o frame rolável que servirá como o form_frame
         self.form_frame = ctk.CTkScrollableFrame(self.frame)
-        self.form_frame.pack(fill="both", expand=True, padx=10, pady=5)
-        self.form_frame.grid_columnconfigure(0, weight=1)
-        
-        # Criar campos do formulário
+        self.form_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=5)
+        self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
+
+        # Agora, cria o título DENTRO do form_frame
+        self.create_section_title(self.title, 0, self.subtitle)
+
+        # O resto da configuração continua normalmente
         self.create_form_fields()
-        
-        # Carregar valores padrão
         self.load_defaults()
-        
-        # Criar botões de ação
         self.create_buttons()
     
     def create_form_fields(self):

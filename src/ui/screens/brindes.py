@@ -4,661 +4,237 @@ Tela de Gestão de Brindes
 
 import customtkinter as ctk
 from tkinter import messagebox
+import tkinter as tk
 from .base_screen import BaseScreen
 from ..components.form_dialog import FormDialog
 from .cadastro_brindes import CadastroBrindesScreen
 from ...data.data_provider import data_provider
 from ...utils.validators import BrindeValidator, MovimentacaoValidator, ValidationError, BusinessRuleError
 
-class BrindesScreen(BaseScreen):
-    """Tela de gestão de brindes"""
+from .base_listing_screen import BaseListingScreen
+from collections import defaultdict
+
+class BrindesScreen(BaseListingScreen):
+    """Tela de gestão de brindes (Refatorada), herdando de BaseListingScreen."""
     
     def __init__(self, parent, user_manager):
-        """Inicializa a tela de brindes"""
-        super().__init__(parent, user_manager)
-        self.current_brindes = []
-        self.filtered_brindes = []
-        self.current_page = 1
-        self.items_per_page = 10
-        self.total_pages = 1
-        # Carregar dados iniciais de forma segura
-        self._load_initial_data()
+        super().__init__(parent, user_manager, "Brindes")
+        self._aggregated_code_map = {}
+        self.items_per_page = 20 # Brindes podem ter mais itens
         self.setup_ui()
-        
-    def after(self, ms, func=None, *args):
-        """Implementação do método after para agendamento de tarefas"""
-        if func is not None:
-            # Usar o frame principal para agendar a tarefa
-            return self.frame.after(ms, func, *args)
-        return None
-    
-    def _load_initial_data(self):
-        """Carrega dados iniciais de forma segura"""
-        try:
-            raw_data = data_provider.get_brindes()
-            # Filtrar apenas objetos válidos
-            self.current_brindes = []
-            for item in raw_data:
-                if item and isinstance(item, dict) and 'codigo' in item and 'descricao' in item:
-                    self.current_brindes.append(item)
-            
-            self.filtered_brindes = self.current_brindes.copy()
-            print(f"Dados carregados: {len(self.current_brindes)} brindes válidos")
-        except Exception as e:
-            print(f"Erro ao carregar dados iniciais: {e}")
-            self.current_brindes = []
-            self.filtered_brindes = []
-    
-    def _validate_brinde(self, brinde):
-        """Valida se um brinde é um objeto válido"""
-        return (brinde and 
-                isinstance(brinde, dict) and 
-                'codigo' in brinde and 
-                'descricao' in brinde and 
-                'id' in brinde)
-    
-    def _safe_get_brindes(self):
-        """Obtém brindes de forma segura, filtrando objetos inválidos"""
-        try:
-            raw_data = data_provider.get_brindes()
-            valid_brindes = []
-            for item in raw_data:
-                if self._validate_brinde(item):
-                    valid_brindes.append(item)
-                else:
-                    print(f"Brinde inválido ignorado: {item}")
-            return valid_brindes
-        except Exception as e:
-            print(f"Erro ao obter brindes: {e}")
-            return []
-    
-    def setup_ui(self):
-        """Configura a interface de brindes"""
-        # Título da tela
-        self.create_title("🎁 Gestão de Brindes", "Cadastro, edição e controle de brindes")
-        
-        # Seção de ações rápidas
-        self.create_actions_section()
-        
-        # Seção de listagem
-        self.create_listing_section()
-    
-    def create_actions_section(self):
-        """Cria a seção de ações rápidas"""
-        section_frame, content_frame = self.create_section("⚡ Ações Rápidas")
-        
-        # Frame para botões
-        buttons_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-        buttons_frame.pack(fill="x")
-        buttons_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
-        
-        # Botão Novo Brinde
-        new_button = ctk.CTkButton(
-            buttons_frame,
-            text="➕ Novo Brinde",
-            command=self.new_brinde,
-            height=40
-        )
-        new_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        
-        # Botão Importar
-        import_button = ctk.CTkButton(
-            buttons_frame,
-            text="📥 Importar",
-            command=self.import_brindes,
-            height=40
-        )
-        import_button.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
-        
-        # Botão Exportar
-        export_button = ctk.CTkButton(
-            buttons_frame,
-            text="📤 Exportar",
-            command=self.export_brindes,
-            height=40
-        )
-        export_button.grid(row=0, column=2, padx=10, pady=10, sticky="ew")
-        
-        # Botão Relatório
-        report_button = ctk.CTkButton(
-            buttons_frame,
-            text="📊 Relatório",
-            command=self.generate_report,
-            height=40
-        )
-        report_button.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
-    
-    def create_listing_section(self):
-        """Cria a seção de listagem de brindes"""
-        # Se a seção já existe, não recriar
-        if hasattr(self, 'listing_section_frame') and self.listing_section_frame.winfo_exists():
-            return
-            
-        # Criar a seção
-        section_frame, content_frame = self.create_section("📋 Lista de Brindes")
-        self.listing_section_frame = section_frame
-        
-        # Filtros
-        filters_frame = ctk.CTkFrame(content_frame)
-        filters_frame.pack(fill="x", pady=(0, 15))
-        filters_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        
-        # Campo de busca
-        search_label = ctk.CTkLabel(filters_frame, text="🔍 Buscar:")
-        search_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
-        
-        self.search_entry = ctk.CTkEntry(filters_frame, placeholder_text="Digite para buscar...")
-        self.search_entry.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
-        self.search_entry.bind("<KeyRelease>", self.on_search_change)
-        
-        # Filtro por categoria
-        category_label = ctk.CTkLabel(filters_frame, text="📂 Categoria:")
-        category_label.grid(row=0, column=1, padx=10, pady=10, sticky="w")
-        
-        self.category_combo = ctk.CTkComboBox(
-            filters_frame,
-            values=["Todas", "Canetas", "Chaveiros", "Camisetas", "Blocos", "Outros"],
-            command=self.on_filter_change
-        )
-        self.category_combo.grid(row=1, column=1, padx=10, pady=(0, 10), sticky="ew")
-        
-        # Filtro por filial (dinâmico)
-        filial_label = ctk.CTkLabel(filters_frame, text="🏢 Filial:")
-        filial_label.grid(row=0, column=2, padx=10, pady=10, sticky="w")
-        
-        try:
-            filiais_list = data_provider.get_filiais() or []
-        except Exception:
-            filiais_list = []
-        filiais_nomes = ["Todas"] + [f.get('nome', 'N/A') for f in filiais_list]
-        self.filial_combo = ctk.CTkComboBox(
-            filters_frame,
-            values=filiais_nomes,
-            command=self.on_filter_change
-        )
-        self.filial_combo.grid(row=1, column=2, padx=10, pady=(0, 10), sticky="ew")
-        
-        # Restringir seleção para não-Admin e não-globais (filial número '00')
-        try:
-            user = self.user_manager.get_current_user() if hasattr(self, 'user_manager') else None
-            if user and not self.user_manager.is_admin():
-                user_filial = user.get('filial')
-                # Verificar se a filial do usuário é global (numero '00')
-                is_global = False
-                try:
-                    fil = next((f for f in filiais_list if f.get('nome') == user_filial), None)
-                    if fil and str(fil.get('numero')).zfill(2) == '00':
-                        is_global = True
-                except Exception:
-                    is_global = (user_filial == 'Matriz')
-                if not is_global:
-                    self.filial_combo.configure(values=[user_filial])
-                    self.filial_combo.set(user_filial)
-                    self.filial_combo.configure(state="disabled")
-                else:
-                    if "Todas" in self.filial_combo.cget('values'):
-                        self.filial_combo.set("Todas")
-        except Exception:
-            pass
-        
-        # Tabela de brindes
-        self.create_brindes_table(content_frame)
-    
-    def on_search_change(self, event=None):
-        """Callback para mudanças no campo de busca"""
-        # Usar debounce para evitar muitas chamadas
-        if hasattr(self, '_search_timer'):
-            self.parent.after_cancel(self._search_timer)
-        
-        self._search_timer = self.parent.after(500, self.apply_filters)
-    
-    def on_filter_change(self, value=None):
-        """Callback para mudanças nos filtros de categoria e filial"""
-        self.apply_filters()
-    
-    def apply_filters(self):
-        """Aplica todos os filtros de forma otimizada"""
-        try:
-            # Começar com todos os brindes válidos
-            self.filtered_brindes = [b for b in self.current_brindes if self._validate_brinde(b)]
-            
-            # Obter valores dos filtros de forma segura
-            search_text = ""
-            categoria = "Todas"
-            filial = "Todas"
-            
-            if hasattr(self, 'search_entry') and self.search_entry.winfo_exists():
-                search_text = self.search_entry.get().strip().lower()
-            
-            if hasattr(self, 'category_combo') and self.category_combo.winfo_exists():
-                categoria = self.category_combo.get()
-            
-            if hasattr(self, 'filial_combo') and self.filial_combo.winfo_exists():
-                filial = self.filial_combo.get()
-            
-            # Aplicar filtros
-            if search_text:
-                self.filtered_brindes = [
-                    b for b in self.filtered_brindes 
-                    if search_text in str(b.get('codigo', '')).lower() or 
-                       search_text in str(b.get('descricao', '')).lower()
-                ]
-            
-            if categoria and categoria != "Todas":
-                self.filtered_brindes = [b for b in self.filtered_brindes if b.get('categoria') == categoria]
-            
-            if filial and filial != "Todas":
-                self.filtered_brindes = [b for b in self.filtered_brindes if b.get('filial') == filial]
-            
-            # Consolidar por item pai (descrição): somar quantidades e manter um código representativo
-            from collections import defaultdict
-            totals_by_desc = defaultdict(int)
-            first_by_desc = {}
-            for b in self.filtered_brindes:
-                desc_key = str(b.get('descricao', '')).strip().lower()
-                if not desc_key:
-                    continue
-                try:
-                    totals_by_desc[desc_key] += int(b.get('quantidade', 0) or 0)
-                except Exception:
-                    pass
-                if desc_key not in first_by_desc:
-                    first_by_desc[desc_key] = b
 
-            display_list = []
-            self._aggregated_code_map = {}
-            for desc_key, total_qty in totals_by_desc.items():
-                rep = first_by_desc[desc_key]
-                display_list.append({
-                    'id': rep.get('id'),
-                    'codigo': rep.get('codigo'),
-                    'descricao': rep.get('descricao'),
-                    'categoria': rep.get('categoria'),
-                    'valor_unitario': rep.get('valor_unitario', 0),
-                    'quantidade': total_qty,
-                    'filial': '—',
-                })
-                self._aggregated_code_map[desc_key] = rep.get('codigo')
+    # --- Implementação dos Métodos Abstratos ---
 
-            self.filtered_brindes = display_list
+    def _get_headers(self):
+        """Retorna os cabeçalhos da tabela de brindes."""
+        return ["Código", "Descrição", "Categoria", "Quantidade", "Valor Unit.", "Valor Total", "Ações"]
 
-            # Resetar para primeira página
-            self.current_page = 1
-            
+    def _load_data(self):
+        """Carrega e pré-processa os dados dos brindes."""
+        try:
+            self.items = data_provider.get_brindes()
+            # A filtragem e consolidação ocorrerão no _perform_search
+            self._on_search_change() # Força a aplicação inicial dos filtros
         except Exception as e:
-            print(f"Erro ao aplicar filtros: {e}")
-            self.filtered_brindes = [b for b in self.current_brindes if self._validate_brinde(b)]
-    
-    def create_brindes_table(self, parent):
-        """Cria a tabela de brindes com paginação"""
-        # Se a tabela já existe, apenas atualizamos os dados
-        if hasattr(self, 'table_frame') and self.table_frame.winfo_exists():
-            # Limpar conteúdo existente
-            for widget in self.table_frame.winfo_children():
-                widget.destroy()
-        else:
-            # Se não existe, criamos o frame da tabela
-            self.table_frame = ctk.CTkFrame(parent)
-            self.table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            self.items = []
+            self.filtered_items = []
+            messagebox.showerror("Erro", f"Erro ao carregar brindes: {e}")
+            self._display_items()
         
-        # Carregar dados se necessário
-        if not self.current_brindes:
-            raw_data = data_provider.get_brindes()
-            # Filtrar valores None ou inválidos
-            self.current_brindes = [b for b in raw_data if b and isinstance(b, dict)]
-            self.filtered_brindes = self.current_brindes.copy()
+    # --- Sobrescrita dos Métodos de UI ---
+
+    def _create_controls_section(self):
+        """Cria a seção de controles com filtros adicionais para brindes."""
+        # Chama o método da classe base primeiro para criar o controls_frame
+        super()._create_controls_section()
         
-        # Calcular paginação
-        self.calculate_pagination()
+        # Cria um novo frame para os filtros específicos de brindes
+        filters_frame = ctk.CTkFrame(self.controls_frame, fg_color="transparent")
+        filters_frame.grid(row=0, column=1, sticky="e", padx=10)
         
-        # Cabeçalho da tabela
-        header_frame = ctk.CTkFrame(self.table_frame, fg_color=("gray80", "gray30"))
-        header_frame.pack(fill="x", pady=(0, 2))
+        # Configura o grid do controls_frame para acomodar os filtros
+        self.controls_frame.grid_columnconfigure(1, weight=1)
         
-        # Configurar pesos das colunas
-        columns = 6  # Total de colunas
-        for i in range(columns):
-            header_frame.columnconfigure(i, weight=1, uniform="col")
-        
-        # Cabeçalhos
-        headers = [
-            "Código", 
-            "Descrição", 
-            "Categoria", 
-            "Quantidade", 
-            "Valor Unit.", 
-            "Valor Total"
-        ]
-        
-        for col, header in enumerate(headers):
-            label = ctk.CTkLabel(
-                header_frame, 
-                text=header, 
-                font=ctk.CTkFont(weight="bold"),
-                anchor="center"
+        try:
+            # Filtro de Categoria
+            ctk.CTkLabel(filters_frame, text="Categoria:").pack(side="left", padx=(0, 5))
+            self.category_combo = ctk.CTkComboBox(
+                filters_frame, 
+                values=["Todas"] + data_provider.get_categorias(),
+                command=lambda _: self._on_search_change()
             )
-            label.grid(row=0, column=col, padx=5, pady=10, sticky="ew")
-        
-        # Frame para conteúdo da tabela (scrollable)
-        if hasattr(self, 'content_frame'):
-            self.content_frame.destroy()
+            self.category_combo.set("Todas")
+            self.category_combo.pack(side="left", padx=5)
+
+            # Filtro de Filial
+            ctk.CTkLabel(filters_frame, text="Filial:").pack(side="left", padx=(10, 5))
+            self.filial_combo = ctk.CTkComboBox(
+                filters_frame, 
+                values=["Todas"] + [f['nome'] for f in data_provider.get_filiais()],
+                command=lambda _: self._on_search_change()
+            )
+            self.filial_combo.set("Todas")
+            self.filial_combo.pack(side="left", padx=5)
             
-        self.content_frame = ctk.CTkScrollableFrame(
-            self.table_frame, 
-            height=400,
-            fg_color=("gray95", "gray16")  # Fundo mais claro/escuro para melhor contraste
-        )
-        self.content_frame.pack(fill="both", expand=True, pady=(0, 10))
-        
-        # Configurar pesos das colunas no conteúdo
-        for i in range(columns):
-            self.content_frame.columnconfigure(i, weight=1, uniform="col")
-        
-        # Renderizar página atual
-        self.render_current_page()
-        
-        # Controles de paginação
-        self.create_pagination_controls()
-    
-    def calculate_pagination(self):
-        """Calcula informações de paginação"""
-        total_items = len(self.filtered_brindes)
-        self.total_pages = max(1, (total_items + self.items_per_page - 1) // self.items_per_page)
-        
-        # Ajustar página atual se necessário
-        if self.current_page > self.total_pages:
-            self.current_page = self.total_pages
-    
-    def render_current_page(self):
-        """Renderiza os itens da página atual"""
-        # Limpar conteúdo anterior
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
-        
-        # Calcular índices da página atual
-        start_idx = (self.current_page - 1) * self.items_per_page
-        end_idx = min(start_idx + self.items_per_page, len(self.filtered_brindes))
-        
-        # Renderizar itens da página atual
-        for i in range(start_idx, end_idx):
-            brinde = self.filtered_brindes[i]
-            self.create_brinde_row(brinde, i - start_idx)
-    
-    def create_brinde_row(self, brinde, row_index):
-        """Cria uma linha da tabela para um brinde"""
-        try:
-            # Verificar se brinde é válido
-            if not brinde or not isinstance(brinde, dict):
-                print(f"ERRO: Brinde inválido na linha {row_index}: {brinde} (tipo: {type(brinde)})")
-                return
-                
-            codigo = brinde.get('codigo', '')
-            desc = brinde.get('descricao', '')
-            cat = brinde.get('categoria', '')
-            qty = brinde.get('quantidade', 0)
-            valor_unit = brinde.get('valor_unitario', 0)
         except Exception as e:
-            print(f"ERRO em create_brinde_row linha {row_index}: {e}")
-            print(f"Brinde problemático: {brinde}")
-            return
+            print(f"Erro ao carregar filtros: {e}")
+            # Se houver erro, continua sem os filtros adicionais
+
+    def _create_action_buttons(self):
+        """Cria os botões de ação específicos para brindes."""
+        ctk.CTkButton(self.actions_frame, text="➕ Novo Brinde", command=self._new_item).pack(side="left", padx=5)
+        ctk.CTkButton(self.actions_frame, text="🔄 Atualizar", command=self.refresh_data).pack(side="left", padx=5)
+        ctk.CTkButton(self.actions_frame, text="📥 Importar", command=self._import_items).pack(side="left", padx=5)
+        ctk.CTkButton(self.actions_frame, text="📤 Exportar", command=self._export_items).pack(side="left", padx=5)
+    
+    # --- Lógica de Busca e Filtragem (Sobrescrita) ---
+
+    def _perform_search(self, items, query):
+        """Aplica filtros de busca, categoria, filial e consolida os resultados."""
+        # 1. Filtros básicos
+        search_text = query.lower()
+        category = self.category_combo.get()
+        filial = self.filial_combo.get()
+
+        filtered = items
+        if search_text:
+            filtered = [i for i in filtered if search_text in str(i.get('codigo', '')).lower() or search_text in str(i.get('descricao', '')).lower()]
+        if category != "Todas":
+            filtered = [i for i in filtered if i.get('categoria') == category]
+        if filial != "Todas":
+            filtered = [i for i in filtered if i.get('filial') == filial]
+
+        # 2. Consolidação por descrição
+        totals_by_desc = defaultdict(lambda: {'quantidade': 0, 'valor_total': 0, 'rep': None})
+        for item in filtered:
+            desc_key = str(item.get('descricao', '')).strip().lower()
+            if not desc_key: continue
+            
+            totals_by_desc[desc_key]['quantidade'] += int(item.get('quantidade', 0) or 0)
+            totals_by_desc[desc_key]['valor_total'] += float(item.get('valor_total', 0) or 0)
+            if not totals_by_desc[desc_key]['rep']:
+                totals_by_desc[desc_key]['rep'] = item
+
+        # 3. Montar a lista final para exibição
+        display_list = []
+        self._aggregated_code_map.clear()
+        for desc_key, data in totals_by_desc.items():
+            rep = data['rep']
+            display_list.append({
+                'id': rep.get('id'),
+                'codigo': rep.get('codigo'),
+                'descricao': rep.get('descricao'),
+                'categoria': rep.get('categoria'),
+                'valor_unitario': rep.get('valor_unitario', 0),
+                'quantidade': data['quantidade'],
+                'valor_total': data['valor_total']
+            })
+            self._aggregated_code_map[desc_key] = rep.get('codigo')
         
-        # Formatar valores monetários
-        valor_unit_fmt = f"R$ {valor_unit:,.2f}".replace('.', '|').replace(',', '.').replace('|', ',')
-        valor_total = qty * valor_unit
-        valor_total_fmt = f"R$ {valor_total:,.2f}".replace('.', '|').replace(',', '.').replace('|', ',')
-        
-        # Criar frame da linha
-        row_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        row_frame.pack(fill="x", pady=1)
-        
-        # Configurar colunas
-        for i in range(6):  # 6 colunas
-            row_frame.columnconfigure(i, weight=1, uniform="col")
-        
+        return display_list
+
+    # --- Lógica de Renderização e Ações ---
+
+    def _create_item_row(self, parent, index, item):
+        """Cria a representação visual de uma linha de brinde consolidado."""
+        row_frame = ctk.CTkFrame(parent, fg_color=("gray90", "gray20") if index % 2 == 0 else ("white", "gray15"))
+        row_frame.pack(fill="x", expand=True, pady=1, padx=5)
+
+        columns = self._get_headers()
+        for i in range(len(columns)):
+            row_frame.grid_columnconfigure(i, weight=1)
+
+        # Formatação de valores
+        valor_unit = float(item.get('valor_unitario', 0))
+        valor_total = float(item.get('valor_total', 0))
+
         # Dados da linha
-        cells = [
-            codigo,
-            desc,
-            cat,
-            f"{qty}",
-            valor_unit_fmt,
-            valor_total_fmt
-        ]
-        
-        # Adicionar células
-        for col, text in enumerate(cells):
-            # Alinhamento: esquerda para texto, direita para números
-            anchor = "w" if col < 3 else "e"
-                
-            label = ctk.CTkLabel(
-                row_frame,
-                text=text,
-                anchor=anchor,
-                font=ctk.CTkFont(size=12)
-            )
-            label.grid(row=0, column=col, padx=5, pady=3, sticky="nsew")
-            
-            # Adicionar eventos de clique usando o código representativo do item pai
-            try:
-                desc_key = str(desc).strip().lower()
-                rep_codigo = self._aggregated_code_map.get(desc_key, codigo)
-            except Exception:
-                rep_codigo = codigo
-            label.bind("<Button-1>", lambda e, c=rep_codigo: self.edit_brinde(c))  # Clique esquerdo para editar
-            label.bind("<Button-3>", lambda e, c=rep_codigo: self.show_context_menu_at_cursor(e, c))  # Clique direito para menu
-        
-        # Adicionar evento de clique direito no frame da linha também usando código representativo
-        try:
-            desc_key_frame = str(desc).strip().lower()
-            rep_codigo_frame = self._aggregated_code_map.get(desc_key_frame, codigo)
-        except Exception:
-            rep_codigo_frame = codigo
-        row_frame.bind("<Button-3>", lambda e, c=rep_codigo_frame: self.show_context_menu_at_cursor(e, c))
-        
-        # Destacar linhas com estoque baixo
-        if int(qty) <= 10:
-            row_frame.configure(fg_color=("#ffdddd", "#550000"))
-    
-    def show_context_menu_at_cursor(self, event, codigo):
-        """Mostra o menu de contexto na posição do cursor"""
-        try:
-            import tkinter as tk
-            from tkinter import messagebox
-            
-            # Criar menu usando tkinter nativo (mais compatível)
-            menu = tk.Menu(self.frame, tearoff=0, bg="white", fg="black", 
-                          activebackground="lightblue", activeforeground="black",
-                          font=("Arial", 10))
-            
-            # Função para fechar o menu de forma segura
-            def close_menu():
-                try:
-                    menu.unpost()
-                except:
-                    pass
-            
-            # Adicionar itens do menu
-            menu.add_command(
-                label="✏️ Editar", 
-                command=lambda: [close_menu(), self.edit_brinde(codigo)]
-            )
-            
-            # Botão Excluir (sempre presente, mas com verificação interna)
-            menu.add_command(
-                label="🗑️ Excluir", 
-                command=lambda: [close_menu(), self.delete_brinde(codigo)]
-            )
-            
-            menu.add_separator()
-            
-            menu.add_command(
-                label="🔄 Transferir", 
-                command=lambda: [close_menu(), self.transfer_brinde(codigo)]
-            )
-            menu.add_command(
-                label="📥 Entrada", 
-                command=lambda: [close_menu(), self.entry_brinde(codigo)]
-            )
-            menu.add_command(
-                label="📤 Saída", 
-                command=lambda: [close_menu(), self.exit_brinde(codigo)]
-            )
-            
-            # Mostrar menu na posição do cursor
-            try:
-                menu.tk_popup(event.x_root, event.y_root)
-                
-                # Capturar eventos para fechar o menu
-                menu.bind("<FocusOut>", lambda e: close_menu())
-                menu.bind("<Escape>", lambda e: close_menu())
-                
-                # Forçar o foco para o menu
-                menu.focus_set()
-                
-            except Exception as e:
-                print(f"Erro ao exibir menu: {e}")
-                close_menu()
-                
-        except Exception as e:
-            print(f"Erro ao criar menu de contexto: {e}")
-            try:
-                messagebox.showerror("Erro", "Não foi possível exibir o menu de contexto")
-            except:
-                pass
-    
-    
-    def create_pagination_controls(self):
-        """Cria os controles de paginação"""
-        # Se já existe um frame de paginação, removê-lo
-        if hasattr(self, 'pagination_frame') and self.pagination_frame.winfo_exists():
-            self.pagination_frame.destroy()
-            
-        self.pagination_frame = ctk.CTkFrame(self.table_frame)
-        self.pagination_frame.pack(fill="x", padx=10, pady=(0, 10))
-        
-        # Informações da paginação
-        info_label = ctk.CTkLabel(
-            self.pagination_frame, 
-            text=f"Página {self.current_page} de {self.total_pages} | "
-                 f"Mostrando {len(self.filtered_brindes)} itens | "
-                 f"{self.items_per_page} por página"
-        )
-        info_label.pack(side="left", padx=10, pady=10)
-        
-        # Botões de navegação
-        nav_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
-        nav_frame.pack(side="right", padx=10, pady=10)
-        
-        # Primeira página
-        first_btn = ctk.CTkButton(nav_frame, text="⏮️", width=40, height=30,
-                                 command=self.go_to_first_page,
-                                 state="disabled" if self.current_page == 1 else "normal")
-        first_btn.pack(side="left", padx=2)
-        
-        # Página anterior
-        prev_btn = ctk.CTkButton(nav_frame, text="◀️", width=40, height=30,
-                                command=self.go_to_previous_page,
-                                state="disabled" if self.current_page == 1 else "normal")
-        prev_btn.pack(side="left", padx=2)
-        
-        # Páginas numeradas (mostrar até 5 páginas)
-        start_page = max(1, self.current_page - 2)
-        end_page = min(self.total_pages, start_page + 4)
-        
-        for page in range(start_page, end_page + 1):
-            page_btn = ctk.CTkButton(
-                nav_frame, 
-                text=str(page), 
-                width=40, 
-                height=30,
-                command=lambda p=page: self.go_to_page(p),
-                fg_color="blue" if page == self.current_page else None
-            )
-            page_btn.pack(side="left", padx=2)
-        
-        # Próxima página
-        next_btn = ctk.CTkButton(nav_frame, text="▶️", width=40, height=30,
-                                command=self.go_to_next_page,
-                                state="disabled" if self.current_page == self.total_pages else "normal")
-        next_btn.pack(side="left", padx=2)
-        
-        # Última página
-        last_btn = ctk.CTkButton(nav_frame, text="⏭️", width=40, height=30,
-                                command=self.go_to_last_page,
-                                state="disabled" if self.current_page == self.total_pages else "normal")
-        last_btn.pack(side="left", padx=2)
-    
-    def go_to_first_page(self):
-        """Vai para a primeira página"""
-        self.current_page = 1
-        self.safe_refresh_table()
-    
-    def go_to_previous_page(self):
-        """Vai para a página anterior"""
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.safe_refresh_table()
-    
-    def go_to_next_page(self):
-        """Vai para a próxima página"""
-        if self.current_page < self.total_pages:
-            self.current_page += 1
-            self.safe_refresh_table()
-    
-    def go_to_last_page(self):
-        """Vai para a última página"""
-        self.current_page = self.total_pages
-        self.safe_refresh_table()
-    
-    def go_to_page(self, page):
-        """Vai para uma página específica"""
-        if 1 <= page <= self.total_pages:
-            self.current_page = page
-            self.safe_refresh_table()
-    
-    def refresh_table(self):
-        """Atualiza a tabela de forma otimizada"""
-        try:
-            # Recalcular paginação
-            self.calculate_pagination()
-            
-            # Renderizar página atual
-            self.render_current_page()
-            
-            # Recriar controles de paginação
-            self.create_pagination_controls()
-        except Exception as e:
-            print(f"Erro ao atualizar tabela: {e}")
-            self.create_listing_section()
+        ctk.CTkLabel(row_frame, text=item.get('codigo', 'N/A')).grid(row=0, column=0, sticky="w", padx=10)
+        ctk.CTkLabel(row_frame, text=item.get('descricao', 'N/A')).grid(row=0, column=1, sticky="w", padx=10)
+        ctk.CTkLabel(row_frame, text=item.get('categoria', 'N/A')).grid(row=0, column=2, sticky="w", padx=10)
+        ctk.CTkLabel(row_frame, text=item.get('quantidade', 0)).grid(row=0, column=3, sticky="w", padx=10)
+        ctk.CTkLabel(row_frame, text=f"R$ {valor_unit:,.2f}").grid(row=0, column=4, sticky="w", padx=10)
+        ctk.CTkLabel(row_frame, text=f"R$ {valor_total:,.2f}").grid(row=0, column=5, sticky="w", padx=10)
 
-    def refresh_brindes_list(self):
-        """Recarrega a lista de brindes de forma otimizada"""
-        try:
-            # Recarregar dados
-            raw_brindes = data_provider.get_brindes()
-            
-            # Filtrar dados válidos
-            self.current_brindes = [b for b in raw_brindes if self._validate_brinde(b)]
-            
-            # Aplicar filtros e atualizar interface
-            self.apply_filters()
-            self.refresh_table()
-            
-        except Exception as e:
-            print(f"Erro ao recarregar brindes: {e}")
-            self.create_listing_section()
+        # Botões de Ação
+        actions_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
+        actions_frame.grid(row=0, column=6, sticky="e", padx=5)
+        ctk.CTkButton(actions_frame, text="✏️", width=30, command=lambda i=item: self._edit_item(i)).pack(side="left")
+        ctk.CTkButton(actions_frame, text="🗑️", width=30, fg_color="#cc3333", command=lambda i=item: self._delete_item(i)).pack(side="left", padx=2)
+
+    def _new_item(self):
+        self._open_cadastro_screen()
+
+    def _edit_item(self, item):
+        # Para editar, precisamos do código original, não o consolidado
+        desc_key = str(item.get('descricao', '')).strip().lower()
+        original_code = self._aggregated_code_map.get(desc_key, item.get('codigo'))
+        # Encontrar o brinde original para passar para a tela de edição
+        original_item = next((i for i in self.items if i.get('codigo') == original_code), None)
+        if original_item:
+            self._open_cadastro_screen(brinde_data=original_item)
+        else:
+            messagebox.showwarning("Aviso", "Não foi possível encontrar o item original para edição.")
+
+    def _delete_item(self, item):
+        if messagebox.askyesno("Confirmar Exclusão", f"Deseja excluir o brinde '{item.get('descricao')}' e todos os seus registros de estoque?", icon="warning"):
+            try:
+                # A exclusão deve ser feita pelo ID do item representativo
+                if data_provider.delete_brinde(item['id']):
+                    messagebox.showinfo("Sucesso", "Brinde excluído com sucesso.")
+                    self.refresh_data()
+                else:
+                    messagebox.showerror("Erro", "Não foi possível excluir o brinde.")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Ocorreu um erro: {e}")
+
+    def _open_cadastro_screen(self, brinde_data=None):
+        if hasattr(self, 'cadastro_window') and self.cadastro_window.winfo_exists():
+            self.cadastro_window.lift()
+            return
+
+        self.cadastro_window = ctk.CTkToplevel(self.frame)
+        self.cadastro_window.title("Cadastro de Brinde")
+        self.cadastro_window.transient(self.frame)
+        self.cadastro_window.grab_set()
+
+        def on_success():
+            self.refresh_data()
+            self.cadastro_window.destroy()
+
+        cadastro_frame = CadastroBrindesScreen(self.cadastro_window, self.user_manager, brinde_data=brinde_data, on_success=on_success)
+        cadastro_frame.pack(fill="both", expand=True)
+        self.cadastro_window.protocol("WM_DELETE_WINDOW", lambda: self.cadastro_window.destroy())
+
+    # --- Métodos específicos (Importar/Exportar) ---
+    def _import_items(self):
+        messagebox.showinfo("Info", "Funcionalidade de importar brindes a ser implementada.")
+
+    def _export_items(self):
+        messagebox.showinfo("Info", "Funcionalidade de exportar brindes a ser implementada.")
+    
+    
+    
+    
+    
+    
     
 
     def new_brinde(self):
         """Abre o formulário modal para cadastro de novo brinde"""
         try:
-            # Usar o frame pai como base para o modal
-            parent_window = self.parent
-            
-            # Se o pai não for uma janela, tentar encontrar uma janela pai
-            if not hasattr(parent_window, 'winfo_toplevel'):
-                parent_window = parent_window.winfo_toplevel()
+            # Se a janela já existe, apenas trazer para frente
+            if self.cadastro_screen is not None and hasattr(self.cadastro_screen, 'window') and self.cadastro_screen.window.winfo_exists():
+                self.cadastro_screen.window.lift()
+                self.cadastro_screen.window.focus_force()
+                return
                 
+            # Obter a janela raiz
+            parent_window = self._get_root()
+            if not parent_window or not parent_window.winfo_exists():
+                parent_window = ctk.CTk()
+                parent_window.withdraw()
+            
             # Criar a tela de cadastro como um modal
             self.cadastro_screen = CadastroBrindesScreen(
                 parent=parent_window,
@@ -668,24 +244,32 @@ class BrindesScreen(BaseScreen):
             
             # Configurar o que acontece quando o modal for fechado
             def on_modal_close():
-                if hasattr(self, 'cadastro_screen'):
-                    try:
-                        if hasattr(self.cadastro_screen, 'window'):
-                            self.cadastro_screen.window.destroy()
-                    except Exception as e:
-                        print(f"Erro ao fechar janela: {e}")
-                    finally:
-                        if hasattr(self, 'cadastro_screen'):
-                            del self.cadastro_screen
+                try:
+                    if (self.cadastro_screen is not None and 
+                        hasattr(self.cadastro_screen, 'window') and 
+                        self.cadastro_screen.window.winfo_exists()):
+                        self.cadastro_screen.window.grab_release()
+                        self.cadastro_screen.window.destroy()
+                except Exception as e:
+                    print(f"Erro ao fechar janela: {e}")
+                finally:
+                    self.cadastro_screen = None
             
-            if hasattr(self.cadastro_screen, 'window'):
+            # Configurar o protocolo de fechamento da janela
+            if hasattr(self.cadastro_screen, 'window') and self.cadastro_screen.window.winfo_exists():
                 self.cadastro_screen.window.protocol("WM_DELETE_WINDOW", on_modal_close)
+                self.cadastro_screen.window.focus_force()
             
         except Exception as e:
             print(f"Erro ao abrir cadastro de brinde: {e}")
+            import traceback
+            traceback.print_exc()
             messagebox.showerror("Erro", f"Erro ao abrir cadastro de brinde: {e}")
+            # Limpar referência em caso de erro
+            self.cadastro_screen = None
             # Garantir que a tela atual continue visível
-            self.show()
+            if hasattr(self, 'show'):
+                self.show()
             
     def _get_root(self):
         """Obtém a janela raiz da aplicação"""
@@ -718,16 +302,28 @@ class BrindesScreen(BaseScreen):
             # Mostrar mensagem de sucesso
             messagebox.showinfo("Sucesso", "Brinde cadastrado com sucesso!")
             
+            # Fechar a janela de cadastro se existir
+            if (self.cadastro_screen is not None and 
+                hasattr(self.cadastro_screen, 'window') and 
+                self.cadastro_screen.window.winfo_exists()):
+                self.cadastro_screen.window.destroy()
+            
             # Recarregar dados
-            self.load_brindes()
+            self._load_initial_data()
             self.refresh_table()
             
             # Garantir que a tela está visível
-            self.show()
+            if hasattr(self, 'show'):
+                self.show()
             
         except Exception as e:
             print(f"Erro ao atualizar lista de brindes: {e}")
+            import traceback
+            traceback.print_exc()
             messagebox.showerror("Erro", f"Erro ao atualizar lista de brindes: {e}")
+        finally:
+            # Limpar a referência à janela de cadastro
+            self.cadastro_screen = None
     
     def _safe_get_fornecedor_names(self):
         """Obtém nomes de fornecedores de forma segura"""

@@ -52,14 +52,9 @@ class BaseFormScreen:
             self.frame.grid_rowconfigure(1, weight=1)
             self.frame.grid_columnconfigure(0, weight=1)
             
-            # Título
-            self.create_title(self.title, self.subtitle)
-            
-            # Frame principal do formulário - ocupar todo o espaço disponível
-            self.form_frame = ctk.CTkFrame(self.frame, fg_color="transparent")
-            self.form_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 10))
-            self.form_frame.grid_rowconfigure(0, weight=1)
-            self.form_frame.grid_columnconfigure(0, weight=1)
+            # A criação do form_frame agora é responsabilidade das subclasses,
+            # que podem decidir se será um frame normal ou rolável.
+            # O título também será criado pelas subclasses dentro do frame correto.
             
             # Criar campos do formulário (implementado pelas subclasses)
             self.create_form_fields()
@@ -86,12 +81,18 @@ class BaseFormScreen:
             
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao configurar a interface: {str(e)}")
-            self.window.destroy()
-            
+            if hasattr(self, 'window') and self.window.winfo_exists():
+                self.window.destroy()
+            raise
+        
         except Exception as e:
-            print(f"Erro ao configurar interface do formulário: {e}")
+            error_msg = f"Erro ao configurar interface do formulário: {str(e)}"
+            print(error_msg)
             import traceback
             traceback.print_exc()
+            if hasattr(self, 'window') and self.window.winfo_exists():
+                messagebox.showerror("Erro", error_msg)
+                self.window.destroy()
             raise
     
     def create_form_fields(self):

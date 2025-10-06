@@ -2,6 +2,7 @@
 Tela de Cadastro/Edição de Fornecedor usando BaseFormScreen
 """
 
+import customtkinter as ctk
 from ..components.base_form_screen import BaseFormScreen
 from ...data.data_provider import data_provider
 from ...utils.validators import Validators, ValidationError
@@ -18,6 +19,21 @@ class CadastroFornecedorScreen(BaseFormScreen):
         subtitle = "Atualize os dados do fornecedor" if self.is_edit_mode else "Preencha os dados do fornecedor"
         
         super().__init__(parent, user_manager, title, subtitle, on_success)
+
+    def setup_base_ui(self):
+        """Configura a interface base do formulário com um frame rolável."""
+        super().setup_base_ui()
+
+        # Cria o frame rolável que servirá como o form_frame
+        self.form_frame = ctk.CTkScrollableFrame(self.frame)
+        self.form_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=5)
+        self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
+
+        # O resto da configuração continua normalmente
+        self.create_form_fields()
+        self.load_defaults()
+        self.create_buttons()
         
     def create_form_fields(self):
         """Cria os campos do formulário"""
